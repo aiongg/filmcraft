@@ -228,3 +228,40 @@ fn edit_original_and_reveal_open_the_file_a_stored_path_resolves_to() {
     }
     assert!(foreign(&seen.lock().unwrap()).is_empty());
 }
+
+/// Update Metadata writes the XMP sidecar next to the media file a stored path resolves to on this
+/// computer, wherever it lives; a path on another computer and a file that is not media are
+/// skipped with a reason.
+#[test]
+fn update_metadata_writes_sidecars_only_beside_local_media_files() {
+    let root = tmp_dir("stored-xmp");
+    let media = root.join("Media");
+    let project = root.join("Project");
+    std::fs::create_dir_all(&media).unwrap();
+    std::fs::create_dir_all(&project).unwrap();
+    let outside = media.join("a.mov");
+    let beside = project.join("b.mov");
+    let notes = media.join("notes.txt");
+    make_movie(&outside, DemoScene::Aurora, W, H, 12);
+    make_movie(&beside, DemoScene::CityNight, W, H, 12);
+    std::fs::write(&notes, "not media").unwrap();
+    let (a, n) = (outside.to_string_lossy().into_owned(), notes.to_string_lossy().into_owned());
+    let (doc, items) = save_with_paths(&project, &[&beside, &outside, &beside, &outside], &["b.mov", &a, r"\\192.0.2.1\share\b.mov", &n]);
+    let (mut t, seen) = recording_session();
+    t.execute("file.open", json!({"path": doc})).unwrap();
+    t.execute("project.select", json!({"items": items.iter().map(|i| i.0).collect::<Vec<_>>()})).unwrap();
+    let r = t.execute("clip.updateMetadata", json!({})).unwrap();
+    let written: Vec<&str> = r["written"].as_array().unwrap().iter().filter_map(|w| w["path"].as_str()).collect();
+    assert_eq!(written.len(), 2, "{r}");
+    for side in [project.join("b.xmp"), media.join("a.xmp")] {
+        assert!(written.contains(&side.to_string_lossy().as_ref()), "{r}");
+        assert!(side.exists(), "{}", side.display());
+    }
+    let mut skipped: Vec<u64> = r["skipped"].as_array().unwrap().iter().filter_map(|k| k["item"].as_u64()).collect();
+    skipped.sort_unstable();
+    let mut refused = vec![items[2].0, items[3].0];
+    refused.sort_unstable();
+    assert_eq!(skipped, refused, "{r}");
+    assert!(!media.join("notes.xmp").exists(), "no sidecar for a file that is not media");
+    assert!(foreign(&seen.lock().unwrap()).is_empty());
+}

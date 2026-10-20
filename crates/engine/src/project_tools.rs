@@ -1248,15 +1248,37 @@ pub fn sidecar_path(media: &str) -> String {
     std::path::Path::new(media).with_extension("xmp").to_string_lossy().to_string()
 }
 
-/// Clip ▸ Update Metadata…: write the items' metadata to XMP sidecars next to their media. An
-/// existing sidecar written by another application is left alone.
+/// The media file a project's media `path` resolves to on this computer, for writing its XMP
+/// sidecar: an existing regular file (after following links) whose name, and the name it links
+/// to, have an extension the importer takes. Otherwise the reason.
+fn local_media_file(s: &Session, path: &str) -> std::result::Result<std::path::PathBuf, String> {
+    let file = std::path::PathBuf::from(s.media.follow(path).map_err(|why| format!("{path} is not opened: {why}"))?);
+    if cfg!(target_arch = "wasm32") {
+        return Ok(file);
+    }
+    let real = std::fs::canonicalize(&file).map_err(|e| format!("{path}: {e}"))?;
+    if !real.is_file() || !filmcraft_media::is_importable(&file) || !filmcraft_media::is_importable(&real) {
+        return Err(format!("{path} is not a media file"));
+    }
+    Ok(file)
+}
+
+/// Clip ▸ Update Metadata…: write the items' metadata to XMP sidecars next to their media files
+/// ([`local_media_file`]). An existing sidecar written by another application is left alone.
 fn update_metadata(s: &mut Session, p: &Value) -> Result<Value> {
     let mut written = Vec::new();
     let mut skipped = Vec::new();
     for id in targets(s, p) {
         let Some(it) = s.project.item(id) else { continue };
         let Some(path) = media_of(&s.project, id).and_then(|(_, m)| file_path(m)) else { continue };
-        let side = sidecar_path(path);
+        let file = match local_media_file(s, path) {
+            Ok(file) => file,
+            Err(reason) => {
+                skipped.push(json!({"item": id.0, "path": sidecar_path(path), "reason": reason}));
+                continue;
+            }
+        };
+        let side = sidecar_path(&file.to_string_lossy());
         if let Ok(old) = s.services.read_file(&side)
             && !String::from_utf8_lossy(&old).contains("xmp:CreatorTool=\"FilmCraft\"")
         {
