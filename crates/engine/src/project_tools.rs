@@ -1089,6 +1089,8 @@ fn project_settings_scratch(s: &mut Session, p: &Value) -> Result<Value> {
             None => {}
             Some(Value::Null) => *slot = None,
             Some(Value::String(x)) if x.is_empty() || x.eq_ignore_ascii_case("same as project") => *slot = None,
+            // The folder the project already names, saved along with other fields: not a choice.
+            Some(Value::String(x)) if slot.as_deref() == Some(x.as_str()) => {}
             Some(Value::String(x))
                 if matches!(crate::doc_path::resolve(x, s.path.as_deref().map(std::path::Path::new)), Err(crate::doc_path::NotFollowed::Refused(_))) =>
             {

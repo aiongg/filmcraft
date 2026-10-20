@@ -290,7 +290,7 @@ fn ingest_destination_named_by_a_project_file_must_be_chosen_here() {
     let elsewhere = root.join("elsewhere");
     let named = elsewhere.to_string_lossy().into_owned();
     let mut last = None;
-    for (n, dest) in [named.as_str(), r"\\server\share\Ingest"].into_iter().enumerate() {
+    for (n, dest) in [r"\\server\share\Ingest", named.as_str()].into_iter().enumerate() {
         let proj = show.join(format!("cut{n}.fcproj")).to_string_lossy().into_owned();
         let mut a = Session::default();
         a.edit("ingest", |p, _| {
@@ -314,12 +314,16 @@ fn ingest_destination_named_by_a_project_file_must_be_chosen_here() {
         last = Some(s);
     }
 
-    // Choosing the folder in Ingest Settings makes it usable; network shares never are.
+    // Saving other ingest fields with the project's folder does not choose it; choosing a folder
+    // in Ingest Settings makes it usable; network shares never are.
     let mut s = last.unwrap();
-    s.execute("project.ingestSettings", json!({"destination": named})).unwrap();
+    s.execute("project.ingestSettings", json!({"enabled": true, "action": "copy", "destination": named})).unwrap();
+    assert_eq!(crate::proxies::ingest_destination(&s), None);
+    let chosen = root.join("chosen");
+    s.execute("project.ingestSettings", json!({"destination": chosen.to_string_lossy()})).unwrap();
     let r = s.execute("file.import", json!({"paths": [take.to_string_lossy()]})).unwrap();
     let copied = std::path::PathBuf::from(r["ingest"]["copied"][0]["path"].as_str().unwrap());
-    assert!(copied.starts_with(&elsewhere), "{}", copied.display());
+    assert!(copied.starts_with(&chosen), "{}", copied.display());
     assert!(s.execute("project.ingestSettings", json!({"destination": r"\\server\share\Ingest"})).is_err());
     let _ = std::fs::remove_dir_all(root);
 }

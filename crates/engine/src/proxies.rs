@@ -616,7 +616,11 @@ pub fn commands() -> Vec<CommandSpec> {
                     ing.action = serde_json::from_value(a.clone()).map_err(|e| bad("project.ingestSettings", e.to_string()))?;
                 }
                 let mut chosen = Vec::new();
-                if let Some(d) = p.get("destination") {
+                if let Some(d) = p.get("destination")
+                    && d.as_str() != ing.destination.as_deref()
+                {
+                    // Only a changed folder is the user's choice; the project's own is sent along
+                    // with the other fields.
                     ing.destination = d.as_str().filter(|d| !d.is_empty()).map(str::to_string);
                     if let Some(d) = &ing.destination {
                         if matches!(crate::doc_path::resolve(d, s.path.as_deref().map(Path::new)), Err(crate::doc_path::NotFollowed::Refused(_))) {
