@@ -230,7 +230,7 @@ fn hevc_hdr_colour() {
     let Some((_, f, _)) = run("hevc_hdr.mkv") else { return };
     let t = &f.tracks[0];
     assert!(matches!(&t.codec, Codec::Hevc { hvcc } if hvcc.first() == Some(&1)));
-    let c = t.video.as_ref().unwrap().colour.as_ref().expect("Colour element");
+    let c = t.video.as_ref().unwrap().color.as_ref().expect("Colour element");
     assert_eq!(c.primaries, Some(9));
     assert_eq!(c.transfer_characteristics, Some(16));
     assert_eq!(c.matrix_coefficients, Some(9));

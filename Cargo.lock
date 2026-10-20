@@ -1019,7 +1019,7 @@ source = "git+https://github.com/storytold/craft-libs?rev=82a24b006eefa036b43c09
 [[package]]
 name = "craft-media"
 version = "0.1.0"
-source = "git+https://github.com/aiongg/craft-libs?rev=02682977c7da14584c43306fe48c33f01d0da151#02682977c7da14584c43306fe48c33f01d0da151"
+source = "git+https://github.com/aiongg/craft-libs?rev=9db732e78c1e3da58eec40e6f9fc4b0cc74bacbd#9db732e78c1e3da58eec40e6f9fc4b0cc74bacbd"
 dependencies = [
  "thiserror 2.0.21",
 ]
