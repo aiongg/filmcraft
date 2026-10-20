@@ -1094,7 +1094,7 @@ pub(crate) fn warn_untrusted_scratch(s: &mut Session) {
 
 /// Log and tell the user once when the project just opened names an ingest destination that
 /// FilmCraft will not write to (see [`crate::proxies::ingest_destination`]).
-pub(crate) fn warn_untrusted_ingest(s: &mut Session) {
+pub(crate) fn warn_unused_ingest(s: &mut Session) {
     let Some(dest) = s.project.settings.ingest.destination.clone().filter(|d| !d.is_empty()) else { return };
     if crate::proxies::ingest_destination(s).is_some() {
         return;

@@ -4395,7 +4395,7 @@ fn install_project(s: &mut Session, proj: filmcraft_project::Project, path: Opti
     s.loaded_schema = filmcraft_format::SCHEMA_VERSION;
     s.events.push(crate::Event::ProjectChanged { revision: s.revision });
     crate::project_tools::warn_untrusted_scratch(s);
-    crate::project_tools::warn_untrusted_ingest(s);
+    crate::project_tools::warn_unused_ingest(s);
 }
 
 fn open_project(s: &mut Session, path: &str) -> Result<Value> {

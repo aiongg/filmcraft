@@ -265,3 +265,26 @@ fn update_metadata_writes_sidecars_only_beside_local_media_files() {
     assert!(!media.join("notes.xmp").exists(), "no sidecar for a file that is not media");
     assert!(foreign(&seen.lock().unwrap()).is_empty());
 }
+
+/// Project Manager copies the file a stored path resolves to and skips, with the reason, a clip
+/// whose stored path is on another computer; the rest of the run goes ahead.
+#[test]
+fn project_manager_skips_a_clip_whose_stored_path_is_not_followed() {
+    let root = tmp_dir("stored-collect");
+    let project = root.join("Project");
+    std::fs::create_dir_all(&project).unwrap();
+    let beside = project.join("b.mov");
+    make_movie(&beside, DemoScene::CityNight, W, H, 12);
+    let unc = r"\\192.0.2.1\share\c.mov";
+    let (doc, items) = save_with_paths(&project, &[&beside, &beside], &["b.mov", unc]);
+    let (mut t, seen) = recording_session();
+    t.execute("file.open", json!({"path": doc})).unwrap();
+    let dest = root.join("Collected");
+    let r = t.execute("file.projectManager", json!({"destination": dest.to_string_lossy(), "excludeUnused": false, "wait": true})).unwrap();
+    assert_eq!(r["files"].as_array().unwrap().len(), 1, "{r}");
+    assert_eq!(r["files"][0]["from"], json!(beside.to_string_lossy()), "{r}");
+    assert_eq!(r["skipped"][0]["item"], json!(items[1].0), "{r}");
+    assert_eq!(r["skipped"][0]["path"], json!(unc), "{r}");
+    assert!(dest.join("b.mov").exists(), "the run copied the other clip");
+    assert!(foreign(&seen.lock().unwrap()).is_empty());
+}

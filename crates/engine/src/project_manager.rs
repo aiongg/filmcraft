@@ -129,6 +129,7 @@ pub fn run(s: &mut Session, p: &Value) -> Result<Value> {
     }
     // ---- work list and estimate
     let mut work = Vec::new();
+    let mut skipped = Vec::new();
     let mut taken: Vec<String> = Vec::new();
     let mut original_bytes = 0u64;
     let mut result_bytes = 0u64;
@@ -137,7 +138,13 @@ pub fn run(s: &mut Session, p: &Value) -> Result<Value> {
     for id in ids {
         let Some(m) = proj.item(id).and_then(|i| i.as_media()).cloned() else { continue };
         let MediaRef::File { path } = &m.media else { continue };
-        let src_path = s.media.follow(path).map_err(|why| EngineError::Other(format!("{path} is not opened: {why}")))?;
+        let src_path = match s.media.follow(path) {
+            Ok(file) => file,
+            Err(why) => {
+                skipped.push(json!({"item": id.0, "path": path, "reason": format!("{path} is not opened: {why}")}));
+                continue;
+            }
+        };
         let size = s.services.file_size(&src_path).unwrap_or(0);
         original_bytes += size;
         let file = Path::new(path);
@@ -194,6 +201,7 @@ pub fn run(s: &mut Session, p: &Value) -> Result<Value> {
         "originalBytes": original_bytes,
         "resultBytes": result_bytes,
         "files": files,
+        "skipped": skipped,
         "excluded": s.project.items.len() - proj.items.len(),
     });
     if bool_p(p, "dryRun").unwrap_or(false) {
