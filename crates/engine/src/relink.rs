@@ -583,14 +583,14 @@ fn status_json(s: &Session, id: ItemId) -> Option<Value> {
     let status = match &path {
         None => "generated",
         Some(_) if m.offline => "offline",
-        Some(p) if s.services.file_size(p).is_err() => "missing",
+        Some(p) if !s.media.follow(p).is_ok_and(|f| s.services.file_size(&f).is_ok()) => "missing",
         Some(_) => match s.media.offline_status(id) {
             Some(o) if o.reason == filmcraft_render::offline::OfflineReason::Unreadable => "unreadable",
             _ => "online",
         },
     };
     let proxy = match &m.proxy {
-        Some(MediaRef::File { path }) => json!({"path": path, "online": s.services.file_size(path).is_ok()}),
+        Some(MediaRef::File { path }) => json!({"path": path, "online": s.media.follow(path).is_ok_and(|f| s.services.file_size(&f).is_ok())}),
         _ => Value::Null,
     };
     Some(json!({

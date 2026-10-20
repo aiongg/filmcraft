@@ -1942,6 +1942,7 @@ dependencies = [
 name = "filmcraft-export"
 version = "0.10.0"
 dependencies = [
+ "craft-docpath",
  "filmcraft-aac",
  "filmcraft-apv",
  "filmcraft-audio-dsp",

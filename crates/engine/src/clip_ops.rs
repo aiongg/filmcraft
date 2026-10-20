@@ -1617,18 +1617,11 @@ fn extract_audio(s: &mut Session, p: &Value) -> Result<Value> {
         let (root, m, sub) = media_root(&s.project, item).ok_or_else(|| bad("clip.extractAudio", "not a media clip"))?;
         let a = m.info.audio().cloned().ok_or_else(|| bad("clip.extractAudio", "the clip has no audio"))?;
         let range = sub.unwrap_or(TimeRange::new(Tick::ZERO, m.info.duration));
-        let dir = match str_p(p, "dir") {
-            Some(d) => d.to_string(),
-            None => s
-                .path
-                .as_deref()
-                .and_then(|x| std::path::Path::new(x).parent())
-                .map(|d| d.to_string_lossy().into_owned())
-                .or_else(|| match &m.media {
-                    MediaRef::File { path } => std::path::Path::new(path).parent().map(|d| d.to_string_lossy().into_owned()),
-                    _ => None,
-                })
-                .ok_or_else(|| EngineError::Other("save the project first: extracted audio is written next to it".into()))?,
+        // `dir`, else next to the project, else where recordings of an unsaved project go.
+        let dir = match (str_p(p, "dir"), s.path.as_deref().and_then(|x| std::path::Path::new(x).parent()).filter(|d| !d.as_os_str().is_empty())) {
+            (Some(d), _) => d.to_string(),
+            (None, Some(d)) => d.to_string_lossy().into_owned(),
+            (None, None) => crate::voiceover::media_dir(s, p, "Extracted Audio"),
         };
         let pi = s.project.item(item).ok_or_else(|| EngineError::Other("no such item".into()))?;
         let name = pi.name.clone();

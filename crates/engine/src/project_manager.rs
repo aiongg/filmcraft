@@ -137,7 +137,8 @@ pub fn run(s: &mut Session, p: &Value) -> Result<Value> {
     for id in ids {
         let Some(m) = proj.item(id).and_then(|i| i.as_media()).cloned() else { continue };
         let MediaRef::File { path } = &m.media else { continue };
-        let size = s.services.file_size(path).unwrap_or(0);
+        let src_path = s.media.follow(path).map_err(|why| EngineError::Other(format!("{path} is not opened: {why}")))?;
+        let size = s.services.file_size(&src_path).unwrap_or(0);
         original_bytes += size;
         let file = Path::new(path);
         let stem = file.file_stem().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| format!("media-{}", id.0));
@@ -157,21 +158,25 @@ pub fn run(s: &mut Session, p: &Value) -> Result<Value> {
             (unique_path(&dest_dir, &stem, "", &ext, &taken).to_string_lossy().into_owned(), None)
         };
         taken.push(out.clone());
-        let proxy = match (&m.proxy, include_proxies) {
-            (Some(MediaRef::File { path: pp }), true) if s.services.file_size(pp).is_ok() => {
-                let pf = Path::new(pp);
+        let proxy_file = match (&m.proxy, include_proxies) {
+            (Some(MediaRef::File { path: pp }), true) => s.media.follow(pp).ok().filter(|f| s.services.file_size(f).is_ok()),
+            _ => None,
+        };
+        let proxy = match proxy_file {
+            Some(pp) => {
+                let pf = Path::new(&pp);
                 let ps = pf.file_stem().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
                 let pe = pf.extension().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
                 let o = unique_path(&dest_dir.join("Proxies"), &ps, "", &pe, &taken).to_string_lossy().into_owned();
                 taken.push(o.clone());
-                let b = s.services.file_size(pp).unwrap_or(0);
+                let b = s.services.file_size(&pp).unwrap_or(0);
                 original_bytes += b;
                 result_bytes += b;
-                Some((pp.clone(), o))
+                Some((pp, o))
             }
-            _ => None,
+            None => None,
         };
-        work.push(Work { item: id, src_path: path.clone(), out, range, proxy });
+        work.push(Work { item: id, src_path, out, range, proxy });
     }
     let previews = s.path.as_deref().map(crate::previews::dir_for_project).filter(|d| include_previews && d.is_dir());
     if let Some(d) = &previews {

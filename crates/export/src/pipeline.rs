@@ -389,9 +389,15 @@ fn composite(dst: &mut Image, src: &Image, x: i64, y: i64, opacity: f32) {
     });
 }
 
-/// Load a PNG / JPEG overlay as premultiplied linear light, `width` pixels wide.
+/// Load a PNG / JPEG overlay as premultiplied linear light, `width` pixels wide. The path may
+/// come from a preset, so it is read like a path stored in a document: a full path to a file on
+/// this computer.
 fn load_overlay(path: &str, width: f32) -> Result<Image> {
-    let bytes = std::fs::read(path).map_err(|e| ExportError::Io(format!("image overlay {path}: {e}")))?;
+    let file = craft_docpath::resolve(path, None)
+        .ok()
+        .filter(|p| p.is_absolute())
+        .ok_or_else(|| ExportError::Unsupported(format!("image overlay {path}: choose an image file on this computer")))?;
+    let bytes = std::fs::read(&file).map_err(|e| ExportError::Io(format!("image overlay {path}: {e}")))?;
     let rgba = image::load_from_memory(&bytes).map_err(|e| ExportError::Unsupported(format!("image overlay {path}: {e}")))?.to_rgba8();
     let (iw, ih) = (rgba.width() as usize, rgba.height() as usize);
     let mut img = Image::new(iw, ih);
