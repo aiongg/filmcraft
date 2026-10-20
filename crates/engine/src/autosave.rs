@@ -50,8 +50,8 @@ pub struct AutoSavePrefs {
     pub recovery_journal: bool,
     /// Longest time (s) unsaved changes may stay out of the journal while edits keep coming.
     pub recovery_interval_seconds: u32,
-    /// Folders chosen in Project Settings ▸ Scratch Disks on this computer. A project file may
-    /// name these, or folders inside its own folder; see
+    /// Folders chosen in Project Settings ▸ Scratch Disks or Ingest Settings on this computer. A
+    /// project file may name these, or folders inside its own folder; see
     /// [`crate::project_tools::trusted_scratch`].
     pub scratch_folders: Vec<String>,
 }

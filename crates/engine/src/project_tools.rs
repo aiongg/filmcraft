@@ -1025,9 +1025,9 @@ fn inside(dir: &std::path::Path, root: &std::path::Path) -> bool {
     }
 }
 
-/// Remember the Scratch Disks folders chosen in this session, so projects naming them may use
-/// them later (see [`trusted_scratch`]).
-fn remember_scratch_folders(s: &mut Session, dirs: &[String]) {
+/// Remember the Scratch Disks and Ingest Settings folders chosen in this session, so projects
+/// naming them may use them later (see [`trusted_scratch`]).
+pub(crate) fn remember_scratch_folders(s: &mut Session, dirs: &[String]) {
     const KEEP: usize = 64;
     let mut prefs = s.prefs.clone();
     let list = &mut prefs.auto_save.scratch_folders;
@@ -1063,6 +1063,19 @@ pub(crate) fn warn_untrusted_scratch(s: &mut Session) {
     log::warn!("project scratch disks outside the project folder not used: {list}");
     s.toast(format!(
         "Scratch Disks: not using {list} (outside the project folder and not chosen on this computer). Auto-saves, previews and captured media go to the default location; choose the folder in Project Settings ▸ Scratch Disks to use it."
+    ));
+}
+
+/// Log and tell the user once when the project just opened names an ingest destination that
+/// FilmCraft will not write to (see [`crate::proxies::ingest_destination`]).
+pub(crate) fn warn_untrusted_ingest(s: &mut Session) {
+    let Some(dest) = s.project.settings.ingest.destination.clone().filter(|d| !d.is_empty()) else { return };
+    if crate::proxies::ingest_destination(s).is_some() {
+        return;
+    }
+    log::warn!("project ingest destination outside the project folder not used: {dest}");
+    s.toast(format!(
+        "Ingest Settings: not using {dest} (outside the project folder and not chosen on this computer). Imported media is ingested next to the original files; choose the folder in Project Settings ▸ Ingest Settings to use it."
     ));
 }
 

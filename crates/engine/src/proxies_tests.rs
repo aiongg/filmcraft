@@ -273,6 +273,57 @@ fn ingest_copy_does_not_create_a_destination_when_the_source_is_missing() {
     let _ = std::fs::remove_dir_all(root);
 }
 
+/// A project file's ingest destination is used only when it was chosen on this computer (or lies
+/// inside the project's folder): an unchosen folder or a network share ingests into the default
+/// `Ingested Media` folder next to the media, and the user is told.
+#[test]
+fn ingest_destination_named_by_a_project_file_must_be_chosen_here() {
+    use filmcraft_project::{IngestAction, IngestSettings};
+
+    let root = tmp_dir("ingest-destination-choice");
+    let card = root.join("Card");
+    let show = root.join("show");
+    std::fs::create_dir_all(&card).unwrap();
+    std::fs::create_dir_all(&show).unwrap();
+    let take = card.join("Take.wav");
+    std::fs::write(&take, filmcraft_media::wav::write_wav16(&[0.25; 960], 1, 48_000)).unwrap();
+    let elsewhere = root.join("elsewhere");
+    let named = elsewhere.to_string_lossy().into_owned();
+    let mut last = None;
+    for (n, dest) in [named.as_str(), r"\\server\share\Ingest"].into_iter().enumerate() {
+        let proj = show.join(format!("cut{n}.fcproj")).to_string_lossy().into_owned();
+        let mut a = Session::default();
+        a.edit("ingest", |p, _| {
+            p.settings.ingest = IngestSettings { enabled: true, action: IngestAction::Copy, destination: Some(dest.into()), preset: String::new() };
+            Ok(())
+        })
+        .unwrap();
+        a.execute("file.saveAs", json!({"path": proj})).unwrap();
+
+        let mut s = Session::default();
+        s.execute("file.open", json!({"path": proj})).unwrap();
+        assert!(
+            s.drain_events().iter().any(|e| matches!(e, crate::Event::Toast { message, .. } if message.contains(dest))),
+            "the user is told {dest} is not used"
+        );
+        let r = s.execute("file.import", json!({"paths": [take.to_string_lossy()]})).unwrap();
+        assert_eq!(r["errors"], json!([]), "{r}");
+        let copied = std::path::PathBuf::from(r["ingest"]["copied"][0]["path"].as_str().unwrap());
+        assert!(copied.starts_with(card.join("Ingested Media")), "{dest}: copied to {}", copied.display());
+        assert!(!elsewhere.exists(), "nothing written to the folder the project names");
+        last = Some(s);
+    }
+
+    // Choosing the folder in Ingest Settings makes it usable; network shares never are.
+    let mut s = last.unwrap();
+    s.execute("project.ingestSettings", json!({"destination": named})).unwrap();
+    let r = s.execute("file.import", json!({"paths": [take.to_string_lossy()]})).unwrap();
+    let copied = std::path::PathBuf::from(r["ingest"]["copied"][0]["path"].as_str().unwrap());
+    assert!(copied.starts_with(&elsewhere), "{}", copied.display());
+    assert!(s.execute("project.ingestSettings", json!({"destination": r"\\server\share\Ingest"})).is_err());
+    let _ = std::fs::remove_dir_all(root);
+}
+
 /// Measure: Program-monitor playback cost of 4K H.264 with and without proxies (sequential frames
 /// at ½ resolution). Run with `RAYON_NUM_THREADS=1` so wall time ≈ CPU time:
 /// `cargo test --release -p filmcraft-engine proxy_playback_perf_4k -- --ignored --nocapture`.

@@ -380,6 +380,12 @@ extension (`A001 2.mov`) and never replace an existing file. Transcodes reserve 
 names for every clip in the import batch. Copies keep their source fingerprint, and each proxy
 stays attached to its corresponding take.
 
+The destination follows the rule for Scratch Disks folders: a destination named in a project file
+is used only when it is inside the project's own folder or was chosen in Ingest Settings on this
+computer (remembered in `autoSave.scratchFolders`). Otherwise copies and transcodes go to
+`<media folder>/Ingested Media`, proxies to their default folder, and FilmCraft says so when the
+project opens. Folders on another computer or a device are never used.
+
 `file.import` reports this under `ingest`.
 
 ## Project Manager

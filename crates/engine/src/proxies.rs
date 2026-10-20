@@ -334,7 +334,8 @@ fn replace_media(s: &mut Session, outs: &[(ItemId, String)]) -> Result<()> {
     Ok(())
 }
 
-/// Where proxies of `media` go: the chosen folder, else `<media dir>/Proxies`.
+/// Where proxies of `media` go: `dest` (a folder the caller chose or [`ingest_destination`]),
+/// else `<media dir>/Proxies`.
 pub fn proxy_dir(media: &str, dest: Option<&str>) -> PathBuf {
     match dest {
         Some(d) if !d.is_empty() => PathBuf::from(d),
@@ -436,21 +437,27 @@ fn copy_for_ingest(s: &mut Session, item: ItemId, path: &str, dir: &Path) -> Res
     Ok(out_s)
 }
 
+/// The ingest destination of the open project, if FilmCraft may write there: a folder chosen in
+/// Project Settings on this computer or inside the project's folder, as for Scratch Disks (see
+/// [`crate::project_tools::trusted_scratch`]). None = the default folders next to the media.
+pub fn ingest_destination(s: &Session) -> Option<PathBuf> {
+    crate::project_tools::trusted_scratch(s.project.settings.ingest.destination.as_deref(), s.path.as_deref(), &s.prefs.auto_save.scratch_folders)
+}
+
 /// Ingest freshly imported items per the project's ingest settings.
 pub fn ingest(s: &mut Session, items: &[ItemId]) -> Result<Value> {
     let ing = s.project.settings.ingest.clone();
     if !ing.enabled || items.is_empty() {
         return Ok(Value::Null);
     }
+    let destination = ingest_destination(s);
+    let ingest_dir = |path: &str| destination.clone().unwrap_or_else(|| Path::new(path).parent().unwrap_or(Path::new(".")).join("Ingested Media"));
     let mut copied = Vec::new();
     let copy = matches!(ing.action, IngestAction::Copy | IngestAction::CopyAndCreateProxies);
     if copy {
         for &i in items {
             let Some((_, path, _)) = media_path(&s.project, i) else { continue };
-            let dir = match &ing.destination {
-                Some(d) if !d.is_empty() => PathBuf::from(d),
-                _ => Path::new(&path).parent().unwrap_or(Path::new(".")).join("Ingested Media"),
-            };
+            let dir = ingest_dir(&path);
             if Path::new(&path).file_name().is_some_and(|name| Path::new(&path) == dir.join(name)) {
                 continue;
             }
@@ -461,7 +468,7 @@ pub fn ingest(s: &mut Session, items: &[ItemId]) -> Result<Value> {
     let mut job = Value::Null;
     match ing.action {
         IngestAction::CreateProxies | IngestAction::CopyAndCreateProxies => {
-            let p = json!({"items": items.iter().map(|i| i.0).collect::<Vec<_>>(), "preset": if ing.preset.is_empty() { DEFAULT_PROXY_PRESET } else { ing.preset.as_str() }, "destination": ing.destination});
+            let p = json!({"items": items.iter().map(|i| i.0).collect::<Vec<_>>(), "preset": if ing.preset.is_empty() { DEFAULT_PROXY_PRESET } else { ing.preset.as_str() }, "destination": destination.as_ref().map(|d| d.to_string_lossy())});
             if items.iter().any(|i| s.project.item(*i).and_then(|x| x.as_media()).is_some_and(|m| m.info.video.is_some() && m.info.kind == MediaKind::Movie)) {
                 job = create(s, &p)?;
             }
@@ -476,10 +483,7 @@ pub fn ingest(s: &mut Session, items: &[ItemId]) -> Result<Value> {
                 if clip.info.video.is_none() {
                     continue;
                 }
-                let dir = match &ing.destination {
-                    Some(d) if !d.is_empty() => PathBuf::from(d),
-                    _ => Path::new(&path).parent().unwrap_or(Path::new(".")).join("Ingested Media"),
-                };
+                let dir = ingest_dir(&path);
                 let stem = Path::new(&path).file_stem().map(|n| n.to_string_lossy().into_owned()).unwrap_or(name);
                 let out = unique_path(&dir, &stem, "", pr.extension, &taken).to_string_lossy().into_owned();
                 taken.push(out.clone());
@@ -611,8 +615,15 @@ pub fn commands() -> Vec<CommandSpec> {
                 if let Some(a) = p.get("action") {
                     ing.action = serde_json::from_value(a.clone()).map_err(|e| bad("project.ingestSettings", e.to_string()))?;
                 }
+                let mut chosen = Vec::new();
                 if let Some(d) = p.get("destination") {
                     ing.destination = d.as_str().filter(|d| !d.is_empty()).map(str::to_string);
+                    if let Some(d) = &ing.destination {
+                        if matches!(crate::doc_path::resolve(d, s.path.as_deref().map(Path::new)), Err(crate::doc_path::NotFollowed::Refused(_))) {
+                            return Err(bad("project.ingestSettings", "`destination` must be a folder on this computer, not a network share or device"));
+                        }
+                        chosen.push(d.clone());
+                    }
                 }
                 if let Some(pr) = str_p(p, "preset") {
                     if !pr.is_empty() && preset(pr).is_none() {
@@ -620,6 +631,7 @@ pub fn commands() -> Vec<CommandSpec> {
                     }
                     ing.preset = pr.to_string();
                 }
+                crate::project_tools::remember_scratch_folders(s, &chosen);
                 if ing != s.project.settings.ingest {
                     let v = ing.clone();
                     s.edit("Ingest Settings", |proj, _| {
