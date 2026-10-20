@@ -210,6 +210,11 @@ impl MediaPool {
         self.stored.write().unwrap_or_else(|e| e.into_inner()).remove(path);
     }
 
+    /// Whether `path` came from a project or other document (not picked in this session).
+    pub fn is_stored(&self, path: &str) -> bool {
+        self.stored.read().unwrap_or_else(|e| e.into_inner()).contains_key(path)
+    }
+
     /// The file to open for `path`, a media or proxy path of the project: a stored path as
     /// [`crate::doc_path::resolve`] resolves it, any other path as given.
     pub fn follow(&self, path: &str) -> Result<String, crate::doc_path::NotFollowed> {

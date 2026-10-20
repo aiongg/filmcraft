@@ -1008,6 +1008,32 @@ pub fn trusted_scratch(dir: Option<&str>, project_path: Option<&str>, chosen: &[
     inside(&resolved, root).then_some(resolved)
 }
 
+/// The file `path`, a media path of the project, resolves to, if FilmCraft may write new files
+/// next to it: the path was picked in this session, or its folder lies inside the project's
+/// folder or a Scratch Disks folder FilmCraft may use (see [`trusted_scratch`]). Otherwise the
+/// reason.
+pub(crate) fn writable_beside(s: &Session, path: &str) -> std::result::Result<std::path::PathBuf, String> {
+    let file = std::path::PathBuf::from(s.media.follow(path).map_err(|why| format!("{path} is not opened: {why}"))?);
+    if cfg!(target_arch = "wasm32") || !s.media.is_stored(path) {
+        return Ok(file);
+    }
+    let sc = &s.project.settings.scratch;
+    let chosen = &s.prefs.auto_save.scratch_folders;
+    let project_dir = s.path.as_deref().and_then(|p| std::path::absolute(p).ok()).and_then(|p| p.parent().map(std::path::Path::to_path_buf));
+    let mut roots = project_dir
+        .into_iter()
+        .chain(
+            [&sc.captured, &sc.audio_previews, &sc.video_previews, &sc.auto_save]
+                .into_iter()
+                .filter_map(|d| trusted_scratch(d.as_deref(), s.path.as_deref(), chosen)),
+        )
+        .filter(|r| !r.as_os_str().is_empty());
+    match file.parent() {
+        Some(dir) if roots.any(|r| inside(dir, &r)) => Ok(file),
+        _ => Err(format!("{path} is outside the project folder and its Scratch Disks")),
+    }
+}
+
 /// Whether `dir` lies inside `root`, also after following the links in the part that exists.
 fn inside(dir: &std::path::Path, root: &std::path::Path) -> bool {
     use std::path::Component;

@@ -423,3 +423,26 @@ fn unique_wav_path_gives_up_instead_of_looping_forever() {
     }
     assert!(crate::voiceover::unique_wav_path(&s, "/nonexistent-dir", "Narration").is_err());
 }
+
+/// Editing a narration of a project opened from disk writes the new file beside the previous one
+/// only inside the project's folder or its Scratch Disks; otherwise it goes next to the project.
+#[test]
+fn edit_of_an_opened_narration_writes_beside_it_only_inside_the_project_folder() {
+    let root = std::path::PathBuf::from(tmp("opened-edit"));
+    let show = root.join("show");
+    let elsewhere = root.join("elsewhere");
+    std::fs::create_dir_all(&show).unwrap();
+    let doc = show.join("cut.fcproj").to_string_lossy().into_owned();
+    let mut s = demo();
+    let r = s.execute("tts.create", json!({"text": "Hi.", "time": 0, "dir": elsewhere.to_string_lossy()})).unwrap();
+    let clip = r["clip"].as_u64().unwrap();
+    s.execute("file.saveAs", json!({"path": doc})).unwrap();
+
+    let mut t = Session::default();
+    t.execute("file.open", json!({"path": doc})).unwrap();
+    let e = t.execute("tts.edit", json!({"clip": clip, "text": "Hello there."})).unwrap();
+    let path = std::path::PathBuf::from(e["path"].as_str().unwrap());
+    assert_eq!(path.parent(), Some(show.as_path()), "{}", path.display());
+    assert_eq!(std::fs::read_dir(&elsewhere).unwrap().count(), 1, "nothing new beside the stored path");
+    let _ = std::fs::remove_dir_all(&root);
+}
