@@ -193,3 +193,38 @@ fn interchange_media_paths_open_only_on_this_computer_or_beside_the_document() {
     let r = s.execute("file.import", json!({"paths": [doc.to_string_lossy()]})).unwrap();
     assert_eq!(r["documents"][0]["linkedMedia"], json!(1), "a path beside the document links: {r}");
 }
+
+/// Save a project in `project` whose media items (made from `files`) store `stored` as their
+/// paths; the document path and the items.
+fn save_with_paths(project: &Path, files: &[&Path], stored: &[&str]) -> (String, Vec<ItemId>) {
+    let (mut s, items, _) = session_with(files);
+    let p = Arc::make_mut(&mut s.project);
+    for (id, path) in items.iter().zip(stored) {
+        p.item_mut(*id).unwrap().as_media_mut().unwrap().media = MediaRef::File { path: path.to_string() };
+    }
+    let doc = project.join("p.fcproj").to_string_lossy().into_owned();
+    s.execute("file.save", json!({"path": doc})).unwrap();
+    (doc, items)
+}
+
+/// Edit Original and Reveal hand the system opener the file a stored path resolves to (never a
+/// relative path, which the opener would take from the working directory), and refuse a path
+/// on another computer.
+#[test]
+fn edit_original_and_reveal_open_the_file_a_stored_path_resolves_to() {
+    let project = tmp_dir("stored-original").join("Project");
+    std::fs::create_dir_all(&project).unwrap();
+    let beside = project.join("b.mov");
+    make_movie(&beside, DemoScene::CityNight, W, H, 12);
+    let (doc, items) = save_with_paths(&project, &[&beside, &beside], &["b.mov", r"\\192.0.2.1\share\b.mov"]);
+    let (mut t, seen) = recording_session();
+    t.execute("file.open", json!({"path": doc})).unwrap();
+    for cmd in ["edit.editOriginal", "file.reveal"] {
+        t.execute("project.select", json!({"items": [items[0].0]})).unwrap();
+        assert_eq!(t.execute(cmd, json!({})).unwrap()["paths"], json!([beside.to_string_lossy()]), "{cmd}");
+        t.execute("project.select", json!({"items": [items[1].0]})).unwrap();
+        let refused = t.execute(cmd, json!({}));
+        assert!(refused.as_ref().is_err_and(|e| e.to_string().contains("is not opened")), "{cmd}: {refused:?}");
+    }
+    assert!(foreign(&seen.lock().unwrap()).is_empty());
+}

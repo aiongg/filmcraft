@@ -1145,10 +1145,15 @@ fn edit_original(s: &mut Session, p: &Value) -> Result<Value> {
     if paths.is_empty() {
         return Err(EngineError::Other("select a clip with a media file".into()));
     }
+    // The system opener gets the file the stored path resolves to, never the path as stored
+    // (a relative one would be taken from the working directory).
+    let mut opened = Vec::with_capacity(paths.len());
     for path in &paths {
-        openable_original(path).map_err(|e| bad("edit.editOriginal", e))?;
+        let file = s.media.follow(path).map_err(|why| bad("edit.editOriginal", format!("{path} is not opened: {why}")))?;
+        openable_original(&file).map_err(|e| bad("edit.editOriginal", e))?;
+        opened.push(file);
     }
-    Ok(json!({"paths": paths}))
+    Ok(json!({"paths": opened}))
 }
 
 /// Metadata fields of the Edit Offline dialog: (param, metadata key).

@@ -361,6 +361,10 @@ fn clipboard_media() -> Option<filmcraft_ui_egui::ClipboardMedia> {
 /// Open a file in its default application, or reveal it in the file manager (Edit Original,
 /// Reveal Log Files).
 fn open_path(path: &str, reveal: bool) -> Result<(), String> {
+    // A relative path would be taken from the working directory.
+    if !std::path::Path::new(path).is_absolute() {
+        return Err(format!("can't open {path}: not a full path"));
+    }
     let mut cmd = if cfg!(target_os = "macos") {
         let mut c = std::process::Command::new("open");
         if reveal {
