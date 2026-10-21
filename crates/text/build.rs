@@ -19,7 +19,7 @@ fn main() {
     println!("cargo::rerun-if-changed=build.rs");
     println!("cargo::rerun-if-env-changed=CRAFT_FONTS_DIR");
     println!("cargo::rerun-if-env-changed=CRAFT_FONTS_REQUIRED");
-    let required = std::env::var_os("CRAFT_FONTS_REQUIRED").is_some();
+    let required = std::env::var_os("CRAFT_FONTS_REQUIRED").is_some_and(|v| v == "1");
     let mut src = String::from("pub static CRAFT_FONTS: &[CraftFont] = &[\n");
     match std::env::var_os("CRAFT_FONTS_DIR").filter(|d| !d.is_empty()).map(PathBuf::from) {
         Some(dir) => match craft_fonts(&dir) {
@@ -28,7 +28,7 @@ fn main() {
             Err(e) => println!("cargo::warning=building without craft-fonts: CRAFT_FONTS_DIR={}: {e}", dir.display()),
         },
         None if required => {
-            println!("cargo::error=CRAFT_FONTS_REQUIRED is set but CRAFT_FONTS_DIR is not: point it at a craft-fonts checkout (absolute path)");
+            println!("cargo::error=CRAFT_FONTS_REQUIRED=1 but CRAFT_FONTS_DIR is not set: point it at a craft-fonts checkout (absolute path)");
         }
         None => {}
     }
