@@ -180,6 +180,8 @@ fn native_options(agent: bool) -> eframe::NativeOptions {
             // Wayland matches the window to `packaging/linux/ai.storyteller.filmcraft.desktop`.
             .with_app_id(APP_ID),
         event_loop_builder: agent_event_loop(agent),
+        // craft_ui's font stack looks up installed fonts itself.
+        system_font_fallback: false,
         ..Default::default()
     }
 }
