@@ -1060,9 +1060,11 @@ dependencies = [
  "craft-i18n",
  "egui",
  "epaint",
+ "fontique",
  "js-sys",
  "serde",
  "skrifa 0.44.0",
+ "unicode-script",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
@@ -2332,6 +2334,7 @@ dependencies = [
 name = "filmcraft-text"
 version = "0.10.0"
 dependencies = [
+ "craft-fonts-build",
  "filmcraft-color",
  "harfrust",
  "skrifa 0.44.0",
@@ -2522,6 +2525,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "835ae9d781464a79026cde387f9cbc650c9a4909d7cf7e658b127e3c35d2f35d"
 dependencies = [
  "bytemuck",
+]
+
+[[package]]
+name = "fontique"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6688bc1294fe7117d788937b6c53480169b29c566954af490830d4c09da9516a"
+dependencies = [
+ "hashbrown 0.17.1",
+ "linebender_resource_handle",
+ "memmap2",
+ "objc2 0.6.4",
+ "objc2-core-foundation",
+ "objc2-core-text",
+ "objc2-foundation 0.3.2",
+ "parlance",
+ "read-fonts 0.41.0",
+ "roxmltree",
+ "smallvec",
+ "windows 0.62.2",
+ "windows-core 0.62.2",
+ "yeslogic-fontconfig-sys",
 ]
 
 [[package]]
@@ -3005,6 +3030,7 @@ dependencies = [
  "hashbrown 0.17.1",
  "log",
  "peniko",
+ "png",
  "skrifa 0.44.0",
  "smallvec",
  "vello_common",
@@ -4311,6 +4337,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "objc2-core-text"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0cde0dfb48d25d2b4862161a4d5fcc0e3c24367869ad306b0c9ec0073bfed92d"
+dependencies = [
+ "bitflags 2.13.2",
+ "objc2-core-foundation",
+]
+
+[[package]]
 name = "objc2-core-video"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4658,6 +4694,12 @@ dependencies = [
  "smallvec",
  "windows-link",
 ]
+
+[[package]]
+name = "parlance"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "73072a9470554c8e794778acece2312661218aaabb635600957d952cf01c716e"
 
 [[package]]
 name = "paste"
@@ -6678,6 +6720,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7df058c713841ad818f1dc5d3fd88063241cc61f49f5fbea4b951e8cf5a8d71d"
 
 [[package]]
+name = "unicode-script"
+version = "0.5.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "383ad40bb927465ec0ce7720e033cb4ca06912855fc35db31b5755d0de75b1ee"
+
+[[package]]
 name = "unicode-segmentation"
 version = "1.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6774,6 +6822,7 @@ dependencies = [
  "guillotiere",
  "log",
  "peniko",
+ "png",
  "smallvec",
  "thiserror 2.0.21",
 ]
@@ -6787,6 +6836,7 @@ dependencies = [
  "bytemuck",
  "glifo",
  "hashbrown 0.17.1",
+ "png",
  "vello_common",
 ]
 
@@ -7865,6 +7915,17 @@ version = "0.10.0"
 dependencies = [
  "filmcraft-testkit",
  "serde_json",
+]
+
+[[package]]
+name = "yeslogic-fontconfig-sys"
+version = "6.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d8b8abf912b9a29ff112e1671c97c33636903d13a69712037190e6805af4f76"
+dependencies = [
+ "dlib",
+ "once_cell",
+ "pkg-config",
 ]
 
 [[package]]

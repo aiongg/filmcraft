@@ -10,6 +10,8 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
+# The EmbeddedFace type of the craft-fonts table build.rs writes.
+craft-fonts-build = { workspace = true }
 filmcraft-color = { workspace = true }
 # Font tables, glyph outlines and metrics (MIT OR Apache-2.0). Rasterisation is our own.
 skrifa = { version = "0.44", default-features = false, features = ["std"] }
@@ -21,3 +23,6 @@ unicode-bidi = "0.3.18"
 unicode-linebreak = "0.1.5"
 # UAX #29 extended grapheme clusters (MIT OR Apache-2.0).
 unicode-segmentation = "1.13"
+
+[build-dependencies]
+craft-fonts-build = { workspace = true }

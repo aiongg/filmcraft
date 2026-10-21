@@ -8,10 +8,11 @@
 //!
 //! A missing or malformed file gives empty tables (or no names) and a warning.
 //!
-//! It also embeds the CJK interface faces of craft-fonts (`CRAFT_FONTS_DIR`), cut to the characters
-//! of the translation catalogs in `src/i18n/`, as `theme::UI_CJK_FACES`. The web build takes only
-//! the Japanese one, for its size budget. Every other craft-fonts face the UI uses comes from
-//! `filmcraft_text::fonts::CRAFT_FONTS`, which titles share.
+//! It also embeds the interface faces of craft-fonts (`CRAFT_FONTS_DIR`) as `theme::UI_FACES`: the
+//! CJK interface faces cut to the characters of the translation catalogs in `src/i18n/`, and the
+//! emoji and symbol faces (keyboard keys, arrows, math). The web build takes only the Japanese cut,
+//! for its size budget. The UI's other scripts (Arabic, Thai, Georgian, Armenian, Ethiopic, Noto
+//! Sans) come from the document faces, `filmcraft_text::fonts::CRAFT_FONTS`, which titles share.
 
 use std::fmt::Write as _;
 
@@ -27,18 +28,30 @@ fn main() {
     if let Err(e) = std::fs::write(&out, generate(&json, &people)) {
         println!("cargo::warning=writing {}: {e}", out.display());
     }
-    ui_cjk_faces();
+    ui_faces();
 }
 
-fn ui_cjk_faces() {
+/// Interface faces outside the CJK cuts. Noto Color Emoji draws through the patched egui's COLR
+/// support; Noto Emoji is the monochrome fallback.
+const UI_EXTRA_FAMILIES: &[&str] = &["Noto Color Emoji", "Noto Emoji", "Noto Sans Symbols", "Noto Sans Symbols 2", "Noto Sans Math"];
+
+/// The document families (`crates/text/build.rs`) the interface shares.
+const SHARED_DOCUMENT_FAMILIES: &[&str] =
+    &["Noto Sans Arabic", "Noto Sans Thai", "Noto Sans Georgian", "Noto Sans Armenian", "Noto Sans Ethiopic", "Noto Sans"];
+
+fn ui_faces() {
     let catalogs = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/i18n");
     println!("cargo::rerun-if-changed={}", catalogs.display());
     let mut paths: Vec<std::path::PathBuf> =
         std::fs::read_dir(&catalogs).into_iter().flatten().flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "tsv")).collect();
     paths.sort();
     let wasm = craft_fonts_build::target_is_wasm();
-    let written =
-        craft_fonts_build::Embed::new().subset_to(paths).filter(move |face| face.is_ui() && (!wasm || face.has_script("Jpan"))).write("ui_cjk_faces.rs");
+    let written = craft_fonts_build::Embed::new()
+        .for_ui()
+        .subset_to(paths)
+        .filter(move |face| if wasm { face.is_ui() && face.has_script("Jpan") } else { face.is_ui() || UI_EXTRA_FAMILIES.contains(&face.family.as_str()) })
+        .embedded_elsewhere(SHARED_DOCUMENT_FAMILIES)
+        .write("ui_faces.rs");
     if let Err(e) = written {
         println!("cargo::error={e}");
     }

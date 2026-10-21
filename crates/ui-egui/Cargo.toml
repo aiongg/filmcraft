@@ -46,6 +46,10 @@ rustix = { version = "1", default-features = false, features = ["std", "time"] }
 # the same clocks on Windows (GetThreadTimes / GetProcessTimes behind a safe API; MIT OR Apache-2.0)
 [target.'cfg(windows)'.dependencies]
 cpu-time = "1"
+# The font stack looks up installed fonts itself (eframe's own lookup is off) and draws the
+# colour emoji face.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+craft-ui = { workspace = true, features = ["system_fonts", "color_fonts"] }
 
 [dev-dependencies]
 pollster = "0.4"

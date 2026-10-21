@@ -84,20 +84,24 @@ CRAFT_FONTS_DIR="$PWD/../craft-fonts" cargo run --release -p filmcraft
 Use an absolute path: build scripts run in their crate's directory, so a relative `CRAFT_FONTS_DIR`
 would resolve from there. Two build scripts read its `fonts/manifest.txt`:
 
-- `crates/text/build.rs` embeds the fonts for titles and captions as
-  `filmcraft_text::fonts::CRAFT_FONTS` (native: every face except the interface sources in
-  `fonts/ui/`; the web build: only BIZ UDPGothic Regular, to keep the wasm small). The text engine
-  uses them as fallback faces (Gothic for sans text, Mincho for serif text).
-- `crates/ui-egui/build.rs` embeds the CJK interface faces (BIZ UDPGothic Regular, Noto Sans
-  SC/TC/HK/KR UI) cut to the characters of the catalogs in `crates/ui-egui/src/i18n/`, about 3 MB
-  together (`craft_fonts_build::Embed::subset_to`; the web build takes only the Japanese one).
-  Adding a translation changes the cuts at the next build.
+- `crates/text/build.rs` embeds the document fonts for titles and captions as
+  `filmcraft_text::fonts::CRAFT_FONTS`: BIZ UDPGothic, BIZ UDMincho, Noto Sans CJK SC, and Noto Sans
+  Arabic, Thai, Georgian, Armenian and Ethiopic and Noto Sans (Latin, Greek, Cyrillic,
+  Devanagari), whole. The text engine uses them as fallback faces (Gothic for sans text, Mincho for
+  serif text) and never asks installed fonts for a missing character, so a script captions should
+  draw needs a family in that list. The web build embeds only BIZ UDPGothic Regular, to keep the
+  wasm small.
+- `crates/ui-egui/build.rs` embeds the interface faces: the CJK ones (BIZ UDPGothic Regular, Noto
+  Sans SC/TC/HK/KR UI) cut to the characters of the catalogs in `crates/ui-egui/src/i18n/`, about
+  3 MB together (`craft_fonts_build::Embed::subset_to`), plus Noto Color Emoji, Noto Emoji and the
+  symbol and math faces (keyboard keys, arrows). The web build takes only the Japanese cut. Adding
+  a translation changes the cuts at the next build.
 
-`theme::craft_faces` hands the interface cuts and the other scripts' title faces to
+`theme::craft_faces` hands the interface faces and the other scripts' document faces to
 `craft_ui::fonts::UiFonts`, which builds every UI font family in the suite's order: Inter (JetBrains
 Mono for monospace), the craft-fonts faces for the interface language, those for every other
 shipped language (so Japanese and Chinese names draw in an English interface, with Japanese glyph
-forms first), installed fonts through egui's system font provider, then egui's own faces. A
+forms first), installed fonts (craft-ui's `system_fonts` index), the emoji faces, then egui's own faces. A
 character the cuts lack, such as a rare kanji in a file name, comes from an installed font. Without
 `CRAFT_FONTS_DIR` both tables are empty and FilmCraft uses its bundled and installed fonts. A
 `CRAFT_FONTS_DIR` that is not a checkout is a build warning, or an error with

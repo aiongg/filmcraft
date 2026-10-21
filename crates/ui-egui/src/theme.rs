@@ -7,7 +7,7 @@ use std::sync::OnceLock;
 
 use craft_fonts_build::EmbeddedFace;
 use craft_ui::direction;
-use craft_ui::fonts::{CraftFace, Family, I18nScripts, Stack, SystemFonts, UiFonts};
+use craft_ui::fonts::{CraftFace, Emoji, Family, I18nScripts, Stack, SystemFonts, UiFonts};
 use egui::{Color32, FontData, FontDefinitions, FontFamily, FontId, Stroke, TextStyle, Visuals};
 use serde::{Deserialize, Serialize};
 
@@ -417,27 +417,34 @@ pub fn font_families() -> Vec<FontFamily> {
     vec![FontFamily::Proportional, FontFamily::Monospace, FontFamily::Name("semibold".into()), FontFamily::Name("medium".into())]
 }
 
-/// craft-fonts' CJK interface faces, cut at build time to the characters of FilmCraft's catalogs
-/// (see `build.rs`); empty unless built with `CRAFT_FONTS_DIR`.
-static UI_CJK_FACES: &[EmbeddedFace] = include!(concat!(env!("OUT_DIR"), "/ui_cjk_faces.rs"));
+/// craft-fonts' interface faces: the CJK faces cut at build time to the characters of FilmCraft's
+/// catalogs, and the emoji and symbol faces (see `build.rs`); empty unless built with
+/// `CRAFT_FONTS_DIR`.
+static UI_FACES: &[EmbeddedFace] = include!(concat!(env!("OUT_DIR"), "/ui_faces.rs"));
 
-/// The craft-fonts faces of the UI: the CJK interface cuts, and the other scripts' faces from the
-/// title fonts ([`filmcraft_text::fonts::CRAFT_FONTS`]). A craft-fonts checkout without interface
-/// faces gives no cuts; the UI then takes the title fonts' CJK faces. Empty unless built with
+/// The craft-fonts faces of the UI: the interface faces, and the other scripts' faces from the
+/// document fonts ([`filmcraft_text::fonts::CRAFT_FONTS`]). A craft-fonts checkout without interface
+/// faces gives no cuts; the UI then takes the document fonts' CJK faces. Empty unless built with
 /// `CRAFT_FONTS_DIR`.
 pub(crate) fn craft_faces() -> &'static [CraftFace] {
     static FACES: OnceLock<Vec<CraftFace>> = OnceLock::new();
     FACES.get_or_init(|| {
-        let cjk = |scripts: &[&str]| scripts.iter().any(|s| s.split('-').next().is_some_and(|base| craft_fonts_build::CJK_SCRIPTS.contains(&base)));
-        let titles = filmcraft_text::fonts::CRAFT_FONTS.iter().filter(|f| UI_CJK_FACES.is_empty() || !cjk(f.scripts)).map(|f| CraftFace {
-            family: f.family,
-            style: f.style,
-            scripts: f.scripts,
-            bytes: f.bytes,
-            index: 0,
-        });
-        UI_CJK_FACES.iter().copied().map(CraftFace::from).chain(titles).collect()
+        let cuts = UI_FACES.iter().any(EmbeddedFace::is_cjk);
+        let documents = filmcraft_text::fonts::CRAFT_FONTS.iter().filter(|f| !cuts || !f.is_cjk());
+        UI_FACES.iter().filter(|f| !f.has_script(EMOJI)).chain(documents).copied().map(CraftFace::from).collect()
     })
+}
+
+/// ISO 15924 `Zsye`, the emoji faces' script tag.
+const EMOJI: &str = "Zsye";
+
+/// The interface table's emoji faces, asked after the installed fonts: Noto Color Emoji, then the
+/// monochrome Noto Emoji.
+fn emoji() -> Emoji {
+    let face = |colour: bool| {
+        UI_FACES.iter().find(|f| f.has_script(EMOJI) && f.family.contains("Color") == colour).map(|f| FontData { index: f.index, ..FontData::from_static(f.bytes) })
+    };
+    Emoji { color: face(true), monochrome: face(false), ..Emoji::default() }
 }
 
 /// FilmCraft's UI fonts for `language`: Inter and JetBrains Mono, then the craft-fonts faces and
@@ -452,6 +459,7 @@ pub(crate) fn ui_fonts(language: crate::i18n::Language) -> UiFonts<'static> {
         .family(Family::named("medium").weight(500))
         .family(Family::named("semibold").weight(600))
         .craft_faces(craft_faces())
+        .emoji(emoji())
         .languages(&codes)
         .ui_language(language.code())
 }

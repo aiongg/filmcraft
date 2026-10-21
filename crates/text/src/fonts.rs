@@ -23,21 +23,14 @@ pub static INTER_ITALIC: &[u8] = include_bytes!("../../../assets/fonts/Inter-Ita
 pub static JETBRAINS_MONO_REGULAR: &[u8] = include_bytes!("../../../assets/fonts/JetBrainsMono-Regular.ttf");
 pub static NOTO_SERIF_REGULAR: &[u8] = include_bytes!("../../../assets/fonts/NotoSerif-Regular.ttf");
 
-/// A font from the optional craft-fonts build input (empty unless built with `CRAFT_FONTS_DIR`; see
-/// `build.rs` and storytold/craft-fonts `docs/integration.md`).
-pub struct CraftFont {
-    pub family: &'static str,
-    pub style: &'static str,
-    /// ISO 15924 scripts the font is for, e.g. `"Jpan"`.
-    pub scripts: &'static [&'static str],
-    pub bytes: &'static [u8],
-}
+pub use craft_fonts_build::EmbeddedFace;
 
-include!(concat!(env!("OUT_DIR"), "/craft_fonts.rs"));
+/// The craft-fonts document faces (see `build.rs`); empty unless built with `CRAFT_FONTS_DIR`.
+pub static CRAFT_FONTS: &[EmbeddedFace] = include!(concat!(env!("OUT_DIR"), "/craft_fonts.rs"));
 
 /// The craft-fonts entries for Japanese (`Jpan`), in [`CRAFT_FONTS`] order. Empty when the app was
 /// built without craft-fonts.
-pub fn craft_japanese() -> impl Iterator<Item = &'static CraftFont> {
+pub fn craft_japanese() -> impl Iterator<Item = &'static EmbeddedFace> {
     CRAFT_FONTS.iter().filter(|f| f.scripts.contains(&"Jpan"))
 }
 
