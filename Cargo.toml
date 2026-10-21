@@ -70,13 +70,13 @@ log = "0.4"
 rayon = "1"
 proptest = "1"
 roxmltree = "0.21"
-craft-docpath = { version = "0.1.0", git = "https://github.com/aiongg/craft-libs", rev = "607d38a" }
+craft-docpath = { version = "0.1.0", git = "https://github.com/aiongg/craft-libs", rev = "7fc94af" }
 
 # ui
 # Shared frontend components; keep this dependency above the engine boundary.
-craft-ui = { version = "0.1.0", git = "https://github.com/aiongg/craft-libs", rev = "607d38a", features = ["serde"] }
-craft-i18n = { version = "0.1.0", git = "https://github.com/aiongg/craft-libs", rev = "607d38a" }
-craft-fonts-build = { version = "0.1.0", git = "https://github.com/aiongg/craft-libs", rev = "607d38a" }
+craft-ui = { version = "0.1.0", git = "https://github.com/aiongg/craft-libs", rev = "7fc94af", features = ["serde"] }
+craft-i18n = { version = "0.1.0", git = "https://github.com/aiongg/craft-libs", rev = "7fc94af" }
+craft-fonts-build = { version = "0.1.0", git = "https://github.com/aiongg/craft-libs", rev = "7fc94af" }
 egui = "0.37"
 eframe = { version = "0.37", default-features = false }
 egui_kittest = "0.37"
@@ -84,16 +84,16 @@ rfd = "0.17"
 
 # The suite's patched toolkit (bidi, IME and platform fixes on egui 0.37 / winit 0.30).
 [patch.crates-io]
-ecolor = { git = "https://github.com/aiongg/egui", rev = "a7bc087cf" }
-eframe = { git = "https://github.com/aiongg/egui", rev = "a7bc087cf" }
-egui = { git = "https://github.com/aiongg/egui", rev = "a7bc087cf" }
-egui-wgpu = { git = "https://github.com/aiongg/egui", rev = "a7bc087cf" }
-egui-winit = { git = "https://github.com/aiongg/egui", rev = "a7bc087cf" }
-egui_glow = { git = "https://github.com/aiongg/egui", rev = "a7bc087cf" }
-egui_kittest = { git = "https://github.com/aiongg/egui", rev = "a7bc087cf" }
-emath = { git = "https://github.com/aiongg/egui", rev = "a7bc087cf" }
-epaint = { git = "https://github.com/aiongg/egui", rev = "a7bc087cf" }
-epaint_default_fonts = { git = "https://github.com/aiongg/egui", rev = "a7bc087cf" }
+ecolor = { git = "https://github.com/aiongg/egui", rev = "a4f9a17f6" }
+eframe = { git = "https://github.com/aiongg/egui", rev = "a4f9a17f6" }
+egui = { git = "https://github.com/aiongg/egui", rev = "a4f9a17f6" }
+egui-wgpu = { git = "https://github.com/aiongg/egui", rev = "a4f9a17f6" }
+egui-winit = { git = "https://github.com/aiongg/egui", rev = "a4f9a17f6" }
+egui_glow = { git = "https://github.com/aiongg/egui", rev = "a4f9a17f6" }
+egui_kittest = { git = "https://github.com/aiongg/egui", rev = "a4f9a17f6" }
+emath = { git = "https://github.com/aiongg/egui", rev = "a4f9a17f6" }
+epaint = { git = "https://github.com/aiongg/egui", rev = "a4f9a17f6" }
+epaint_default_fonts = { git = "https://github.com/aiongg/egui", rev = "a4f9a17f6" }
 winit = { git = "https://github.com/aiongg/winit", rev = "8b35388b" }
 
 [workspace.lints.rust]
