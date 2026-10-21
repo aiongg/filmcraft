@@ -442,7 +442,10 @@ const EMOJI: &str = "Zsye";
 /// monochrome Noto Emoji.
 fn emoji() -> Emoji {
     let face = |colour: bool| {
-        UI_FACES.iter().find(|f| f.has_script(EMOJI) && f.family.contains("Color") == colour).map(|f| FontData { index: f.index, ..FontData::from_static(f.bytes) })
+        UI_FACES
+            .iter()
+            .find(|f| f.has_script(EMOJI) && f.family.contains("Color") == colour)
+            .map(|f| FontData { index: f.index, ..FontData::from_static(f.bytes) })
     };
     Emoji { color: face(true), monochrome: face(false), ..Emoji::default() }
 }
@@ -725,5 +728,36 @@ mod tests {
         assert!(second.iter().fold(f32::MIN, |a, &b| a.max(b)) < first.iter().fold(f32::MAX, |a, &b| a.min(b)), "{first:?} {second:?}");
         assert_eq!(drawn.iter().min_by(|a, b| a.pos.x.total_cmp(&b.pos.x)).map(|g| g.chr), Some('ى'));
         ctx.run_ui(egui::RawInput::default(), |_| {}).textures_delta.clear();
+    }
+
+    /// Characters no catalog has, typed into a text field: a rare Han character (the interface cuts
+    /// lack it, so without installed fonts it is a missing glyph), a Vietnamese letter and a
+    /// keyboard symbol. Nothing panics, and with craft-fonts the embedded faces draw the last two
+    /// (Noto Sans, the symbol faces).
+    #[test]
+    fn characters_outside_the_catalogs_type_into_a_text_field() {
+        use egui_kittest::kittest::Queryable as _;
+        let typed = "\u{2A6A5}ẫ⌘";
+        let mut harness = egui_kittest::Harness::new_ui_state(
+            |ui, text: &mut String| {
+                ui.add(egui::TextEdit::singleline(text)).accessible_name("Name");
+            },
+            String::new(),
+        );
+        font_stack(crate::i18n::Language::En, SystemFonts::Off).install(&harness.ctx);
+        harness.ctx.set_missing_glyph_policy(egui::MissingGlyphPolicy::Tofu);
+        harness.run();
+        harness.get_by_label("Name").focus();
+        harness.run();
+        harness.get_by_label("Name").type_text(typed);
+        harness.run();
+        assert_eq!(harness.state(), typed);
+        let font = FontId::proportional(13.0);
+        let drawn: Vec<char> = typed.chars().filter(|c| harness.ctx.fonts_mut(|f| f.has_glyph(&font, *c))).collect();
+        if craft_faces().is_empty() {
+            eprintln!("SKIPPED glyph check: built without craft-fonts (set CRAFT_FONTS_DIR)");
+            return;
+        }
+        assert!(drawn.contains(&'ẫ') && drawn.contains(&'⌘'), "{drawn:?}");
     }
 }
