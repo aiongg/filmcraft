@@ -1271,7 +1271,7 @@ impl Ctx<'_> {
         }
         let animated = self.e.params.get(id).is_some_and(|p| p.is_animated());
         let sw = Rect::from_center_size(pos2(row.min.x + 8.0, row.center().y), vec2(12.0, 12.0));
-        let resp = ui.interact(sw.expand(2.0), egui::Id::new(("gfxsw", self.clip.0, self.layer, id)), Sense::click()).on_hover_text(tl!("Toggle animation"));
+        let resp = ui.interact(sw.expand(2.0), egui::Id::unique(("gfxsw", self.clip.0, self.layer, id)), Sense::click()).on_hover_text(tl!("Toggle animation"));
         let tint = if animated {
             self.t.accent
         } else if resp.hovered() {

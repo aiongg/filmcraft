@@ -342,7 +342,7 @@ fn graphics(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
     let mut actions: Vec<(String, Value)> = Vec::new();
     // search
     let bar = Rect::from_min_size(rect.min + vec2(10.0, 2.0), vec2(rect.width() - 20.0, 26.0));
-    let skey = egui::Id::new("text-gfx-search");
+    let skey = egui::Id::unique("text-gfx-search");
     let mut search = ui.data(|d| d.get_temp::<String>(skey)).unwrap_or_default();
     let w = 220.0f32.min(bar.width());
     let mut child = ui.new_child(egui::UiBuilder::new().max_rect(Rect::from_min_size(bar.min, vec2(w, 24.0))));
@@ -395,7 +395,7 @@ fn graphics(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
                         ui.label(egui::RichText::new(label).size(11.0).color(t.text_dim));
                     });
                     ui.vertical(|ui| {
-                        let tkey = egui::Id::new(("gfx-text", g.clip.0, g.layer));
+                        let tkey = egui::Id::unique(("gfx-text", g.clip.0, g.layer));
                         let mut buf = ui.data(|d| d.get_temp::<String>(tkey)).unwrap_or_else(|| g.text.clone());
                         let resp = ui.add(
                             egui::TextEdit::multiline(&mut buf)

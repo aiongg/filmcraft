@@ -1276,7 +1276,7 @@ fn draw_headers(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequence, rows:
             p.rect_filled(hrect, 0.0, c.gamma_multiply(TRACK_HEADER_TINT));
             p.rect_filled(Rect::from_min_max(strip.min, pos2(strip.min.x + 5.0, strip.max.y)), 0.0, c);
         }
-        let cresp = ui.interact(strip.intersect(visible), egui::Id::new(("trackColor", r.track.0)), Sense::click()).on_hover_text(tl!("Track Color"));
+        let cresp = ui.interact(strip.intersect(visible), egui::Id::unique(("trackColor", r.track.0)), Sense::click()).on_hover_text(tl!("Track Color"));
         app.auto.add(&format!("timeline.track.{}{}.color", if r.kind == TrackKind::Video { "V" } else { "A" }, r.index + 1), strip, "Track Color");
         if cresp.hovered() && tr.label.is_none() {
             p.rect_filled(Rect::from_min_max(strip.min, pos2(strip.min.x + 5.0, strip.max.y)), 0.0, t.hover);
