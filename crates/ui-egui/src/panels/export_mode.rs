@@ -357,6 +357,19 @@ fn section(ui: &mut egui::Ui, reg: &mut Reg, open: &mut Vec<String>, key: &str, 
 fn drag(ui: &mut egui::Ui, reg: &mut Reg, id: &str, v: &mut f64, range: std::ops::RangeInclusive<f64>, speed: f64, suffix: &str, decimals: usize) -> bool {
     let before = *v;
     let r = ui.add(crate::widgets::number_drag(v).range(range).speed(speed).suffix(suffix).max_decimals(decimals));
+    drag_done(ui, reg, id, v, before, &r)
+}
+
+/// A bit rate in Mbps, written and read as the system's region does.
+fn bitrate_drag(ui: &mut egui::Ui, reg: &mut Reg, id: &str, v: &mut f64, range: std::ops::RangeInclusive<f64>) -> bool {
+    let before = *v;
+    let drag = egui::DragValue::new(v).range(range).speed(0.1).max_decimals(1);
+    let r = ui.add(crate::widgets::localized_drag(drag, crate::widgets::locale_numbers(), before, "{n} Mbps"));
+    drag_done(ui, reg, id, v, before, &r)
+}
+
+/// Register a number field and report whether it changed its value.
+fn drag_done(ui: &mut egui::Ui, reg: &mut Reg, id: &str, v: &mut f64, before: f64, r: &egui::Response) -> bool {
     reg.add(id, r.rect, format!("{v}"));
     // a drag ended by Escape goes back to the value it started from (egui ends the drag, #580)
     let home = r.id.with("before-drag");
@@ -753,14 +766,14 @@ fn video_section(ui: &mut egui::Ui, reg: &mut Reg, s: &mut ExportSettings, t: &T
             } else {
                 row(ui, t, tl!("Target Bitrate"), |ui| {
                     let mut mbps = s.bitrate_kbps as f64 / 1000.0;
-                    if drag(ui, reg, "export.video.target", &mut mbps, 0.1..=800.0, 0.1, " Mbps", 1) {
+                    if bitrate_drag(ui, reg, "export.video.target", &mut mbps, 0.1..=800.0) {
                         s.bitrate_kbps = (mbps * 1000.0).round() as u32;
                     }
                 });
                 if s.bitrate_mode != BitrateMode::Cbr {
                     row(ui, t, tl!("Maximum Bitrate"), |ui| {
                         let mut mbps = s.max_bitrate_kbps.unwrap_or(s.bitrate_kbps * 3 / 2) as f64 / 1000.0;
-                        if drag(ui, reg, "export.video.max", &mut mbps, 0.1..=1000.0, 0.1, " Mbps", 1) {
+                        if bitrate_drag(ui, reg, "export.video.max", &mut mbps, 0.1..=1000.0) {
                             s.max_bitrate_kbps = Some((mbps * 1000.0).round() as u32);
                         }
                     });

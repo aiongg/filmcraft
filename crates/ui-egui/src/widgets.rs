@@ -1,5 +1,7 @@
 //! Small custom widgets in Premiere's visual language.
 
+use std::sync::{Arc, OnceLock};
+
 use egui::{Align2, Color32, Rect, Response, Sense, Stroke, StrokeKind, Ui, pos2, vec2};
 use filmcraft_time::{FrameRate, Tick, parse_timecode};
 
@@ -354,6 +356,28 @@ pub fn number_drag<Num: egui::emath::Numeric>(value: &mut Num) -> egui::DragValu
     egui::DragValue::new(value).custom_parser(move |s| crate::calc::eval(s, current))
 }
 
+/// How the system's region writes and reads numbers (digits, decimal mark, grouping), for
+/// [`craft_ui::localized`] number fields. Read once per process.
+pub fn locale_numbers() -> &'static craft_ui::localized::LocaleNumbers {
+    static NUMBERS: OnceLock<craft_ui::localized::LocaleNumbers> = OnceLock::new();
+    NUMBERS.get_or_init(|| {
+        let format = craft_i18n::Format::new(&craft_i18n::Region::system(), craft_i18n::Digits::Locale);
+        craft_ui::localized::LocaleNumbers::new(Arc::new(format)).with_messages(|s| crate::i18n::t(s).to_owned())
+    })
+}
+
+/// `drag` writing and reading its number with `numbers` (usually [`locale_numbers`]): `12,5 Mbps`
+/// in Germany. Like [`number_drag`], it also takes a calculation applied to `current`, the value
+/// the field holds. `unit` is a template such as `"{n} Mbps"`.
+pub fn localized_drag<'a>(
+    drag: egui::DragValue<'a>,
+    numbers: &craft_ui::localized::LocaleNumbers,
+    current: f64,
+    unit: &str,
+) -> craft_ui::localized::LocalizedDragValue<'a> {
+    craft_ui::localized::LocalizedDragValue::new(drag, numbers).unit(craft_ui::localized::Unit::new(unit)).or_parse(move |s| crate::calc::eval(s, current))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -417,5 +441,34 @@ mod tests {
         frame(vec![press(to, false)]);
         let end = frame(Vec::new());
         assert!((end.center() - (start.center() + egui::vec2(-200.0, -150.0))).length() < 2.0, "moved with the drag: {start:?} -> {end:?}");
+    }
+
+    /// A localized field reads the region's decimal mark and still takes calculations.
+    #[test]
+    fn localized_drag_reads_the_regions_decimals_and_calculations() {
+        use egui::accesskit::Role;
+        use egui_kittest::kittest::Queryable;
+        let numbers = craft_ui::localized::LocaleNumbers::from_tag("de");
+        let mut h = egui_kittest::Harness::builder().build_ui_state(
+            move |ui, v: &mut f64| {
+                let current = *v;
+                ui.add(localized_drag(egui::DragValue::new(v).max_decimals(1), &numbers, current, "{n} Mbps"));
+            },
+            12.5,
+        );
+        h.run();
+        let type_in = |h: &mut egui_kittest::Harness<'_, f64>, text: &str| {
+            h.get_by_role(Role::SpinButton).click();
+            h.run();
+            h.get_by_role(Role::SpinButton).type_text(text);
+            h.run();
+            h.key_press(egui::Key::Enter);
+            h.run();
+        };
+        assert!(h.get_by_role(Role::SpinButton).value().is_some_and(|v| v.contains("12,5")), "{:?}", h.get_by_role(Role::SpinButton).value());
+        type_in(&mut h, "8,5");
+        assert_eq!(*h.state(), 8.5);
+        type_in(&mut h, "100/8");
+        assert_eq!(*h.state(), 12.5);
     }
 }
