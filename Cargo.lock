@@ -1018,12 +1018,17 @@ dependencies = [
 [[package]]
 name = "craft-docpath"
 version = "0.1.0"
-source = "git+https://github.com/aiongg/craft-libs?branch=lang-integration#668964f44ffd5403c4b20a630bb5b2118b49d541"
+source = "git+https://github.com/aiongg/craft-libs?rev=bcea5303b2ecbeb58211c95a5fb50ac1ccf9f70c#bcea5303b2ecbeb58211c95a5fb50ac1ccf9f70c"
+
+[[package]]
+name = "craft-fonts-build"
+version = "0.1.0"
+source = "git+https://github.com/aiongg/craft-libs?rev=bcea5303b2ecbeb58211c95a5fb50ac1ccf9f70c#bcea5303b2ecbeb58211c95a5fb50ac1ccf9f70c"
 
 [[package]]
 name = "craft-i18n"
 version = "0.1.0"
-source = "git+https://github.com/aiongg/craft-libs?branch=lang-integration#668964f44ffd5403c4b20a630bb5b2118b49d541"
+source = "git+https://github.com/aiongg/craft-libs?rev=bcea5303b2ecbeb58211c95a5fb50ac1ccf9f70c#bcea5303b2ecbeb58211c95a5fb50ac1ccf9f70c"
 dependencies = [
  "fixed_decimal",
  "icu_decimal",
@@ -1037,6 +1042,7 @@ dependencies = [
  "icu_provider_blob",
  "objc2-foundation 0.3.2",
  "sys-locale",
+ "unicode-bidi",
  "windows-registry",
  "writeable",
 ]
@@ -1044,14 +1050,18 @@ dependencies = [
 [[package]]
 name = "craft-ui"
 version = "0.1.0"
-source = "git+https://github.com/aiongg/craft-libs?branch=lang-integration#668964f44ffd5403c4b20a630bb5b2118b49d541"
+source = "git+https://github.com/aiongg/craft-libs?rev=bcea5303b2ecbeb58211c95a5fb50ac1ccf9f70c#bcea5303b2ecbeb58211c95a5fb50ac1ccf9f70c"
 dependencies = [
+ "craft-fonts-build",
  "craft-i18n",
  "egui",
- "egui_system_font_provider",
  "epaint",
+ "js-sys",
  "serde",
  "skrifa",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]
@@ -1482,20 +1492,6 @@ dependencies = [
  "serde",
  "toml 1.1.6+spec-1.1.0",
  "wgpu",
-]
-
-[[package]]
-name = "egui_system_font_provider"
-version = "0.37.0"
-source = "git+https://github.com/aiongg/egui?branch=craft%2F0.37#e44fd1d97ba4cc529f58cfcbf22631f28d625d08"
-dependencies = [
- "epaint",
- "fontique",
- "log",
- "poll-promise",
- "skrifa",
- "sys-locale",
- "unicode-script",
 ]
 
 [[package]]
@@ -2516,33 +2512,11 @@ checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
 name = "font-types"
-version = "0.12.5"
+version = "0.12.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8eb065f3251655b3c90e22e5e363f310fc5332fb3402e37bbc94752283248f6"
+checksum = "835ae9d781464a79026cde387f9cbc650c9a4909d7cf7e658b127e3c35d2f35d"
 dependencies = [
  "bytemuck",
-]
-
-[[package]]
-name = "fontique"
-version = "0.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6688bc1294fe7117d788937b6c53480169b29c566954af490830d4c09da9516a"
-dependencies = [
- "hashbrown 0.17.1",
- "linebender_resource_handle",
- "memmap2",
- "objc2 0.6.4",
- "objc2-core-foundation",
- "objc2-core-text",
- "objc2-foundation 0.3.2",
- "parlance",
- "read-fonts",
- "roxmltree",
- "smallvec",
- "windows 0.62.2",
- "windows-core 0.62.2",
- "yeslogic-fontconfig-sys",
 ]
 
 [[package]]
@@ -3026,7 +3000,6 @@ dependencies = [
  "hashbrown 0.17.1",
  "log",
  "peniko",
- "png",
  "skrifa",
  "smallvec",
  "vello_common",
@@ -3138,7 +3111,7 @@ dependencies = [
  "log",
  "presser",
  "thiserror 2.0.21",
- "windows 0.62.2",
+ "windows 0.54.0",
 ]
 
 [[package]]
@@ -4333,16 +4306,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "objc2-core-text"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0cde0dfb48d25d2b4862161a4d5fcc0e3c24367869ad306b0c9ec0073bfed92d"
-dependencies = [
- "bitflags 2.13.2",
- "objc2-core-foundation",
-]
-
-[[package]]
 name = "objc2-core-video"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4692,12 +4655,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "parlance"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73072a9470554c8e794778acece2312661218aaabb635600957d952cf01c716e"
-
-[[package]]
 name = "paste"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4883,16 +4840,6 @@ dependencies = [
  "fdeflate",
  "flate2",
  "miniz_oxide 0.8.9",
-]
-
-[[package]]
-name = "poll-promise"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f6a58fecbf9da8965bcdb20ce4fd29788d1acee68ddbb64f0ba1b81bccdb7df"
-dependencies = [
- "document-features",
- "static_assertions",
 ]
 
 [[package]]
@@ -6691,12 +6638,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7df058c713841ad818f1dc5d3fd88063241cc61f49f5fbea4b951e8cf5a8d71d"
 
 [[package]]
-name = "unicode-script"
-version = "0.5.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "383ad40bb927465ec0ce7720e033cb4ca06912855fc35db31b5755d0de75b1ee"
-
-[[package]]
 name = "unicode-segmentation"
 version = "1.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6793,7 +6734,6 @@ dependencies = [
  "guillotiere",
  "log",
  "peniko",
- "png",
  "smallvec",
  "thiserror 2.0.21",
 ]
@@ -6807,7 +6747,6 @@ dependencies = [
  "bytemuck",
  "glifo",
  "hashbrown 0.17.1",
- "png",
  "vello_common",
 ]
 
@@ -7876,17 +7815,6 @@ version = "0.9.0"
 dependencies = [
  "filmcraft-testkit",
  "serde_json",
-]
-
-[[package]]
-name = "yeslogic-fontconfig-sys"
-version = "6.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d8b8abf912b9a29ff112e1671c97c33636903d13a69712037190e6805af4f76"
-dependencies = [
- "dlib",
- "once_cell",
- "pkg-config",
 ]
 
 [[package]]

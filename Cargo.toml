@@ -70,12 +70,12 @@ log = "0.4"
 rayon = "1"
 proptest = "1"
 roxmltree = "0.21"
-craft-docpath = { version = "0.1.0", git = "https://github.com/aiongg/craft-libs", branch = "lang-integration" }
+craft-docpath = { version = "0.1.0", git = "https://github.com/aiongg/craft-libs", rev = "bcea5303b2ecbeb58211c95a5fb50ac1ccf9f70c" }
 
 # ui
 # Shared frontend components; keep this dependency above the engine boundary.
-craft-ui = { version = "0.1.0", git = "https://github.com/aiongg/craft-libs", branch = "lang-integration", features = ["serde"] }
-craft-i18n = { version = "0.1.0", git = "https://github.com/aiongg/craft-libs", branch = "lang-integration" }
+craft-ui = { version = "0.1.0", git = "https://github.com/aiongg/craft-libs", rev = "bcea5303b2ecbeb58211c95a5fb50ac1ccf9f70c", features = ["serde"] }
+craft-i18n = { version = "0.1.0", git = "https://github.com/aiongg/craft-libs", rev = "bcea5303b2ecbeb58211c95a5fb50ac1ccf9f70c" }
 egui = "0.37"
 eframe = { version = "0.37", default-features = false }
 egui_kittest = "0.37"
@@ -90,7 +90,6 @@ egui-wgpu = { git = "https://github.com/aiongg/egui", branch = "craft/0.37" }
 egui-winit = { git = "https://github.com/aiongg/egui", branch = "craft/0.37" }
 egui_glow = { git = "https://github.com/aiongg/egui", branch = "craft/0.37" }
 egui_kittest = { git = "https://github.com/aiongg/egui", branch = "craft/0.37" }
-egui_system_font_provider = { git = "https://github.com/aiongg/egui", branch = "craft/0.37" }
 emath = { git = "https://github.com/aiongg/egui", branch = "craft/0.37" }
 epaint = { git = "https://github.com/aiongg/egui", branch = "craft/0.37" }
 epaint_default_fonts = { git = "https://github.com/aiongg/egui", branch = "craft/0.37" }
