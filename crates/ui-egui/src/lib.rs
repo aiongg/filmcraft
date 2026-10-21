@@ -50,7 +50,6 @@ pub mod panels;
 pub mod perf;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod play_ahead;
-mod rtl;
 pub mod scrub;
 mod shuttle;
 pub mod source_playback;
@@ -2076,8 +2075,8 @@ impl eframe::App for FilmcraftApp {
             self.styled = true;
             ctx.request_repaint();
         } else if self.fonts_language != self.ui.language {
-            // the UI language's own faces lead the font stack
-            theme::install_fonts(ctx, self.ui.language);
+            // the UI language's own faces lead the font stack, and it sets the direction
+            theme::install_language(ctx, self.ui.language);
             self.fonts_language = self.ui.language;
             ctx.request_repaint();
         } else {

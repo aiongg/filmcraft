@@ -1277,7 +1277,7 @@ mod tests {
         }
         assert!(r.is_ok(), "{r:?}");
         set_current(Language::En);
-        crate::theme::install_fonts(&ctx, Language::Ja);
+        crate::theme::install_language(&ctx, Language::Ja);
         ctx.run_ui(egui::RawInput::default(), |_| {}).textures_delta.clear();
         ctx.fonts_mut(|fonts| {
             for family in [egui::FontFamily::Proportional, egui::FontFamily::Monospace] {

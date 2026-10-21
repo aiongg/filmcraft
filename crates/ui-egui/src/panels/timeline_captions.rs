@@ -148,14 +148,14 @@ pub fn paint(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequence, area: Re
             }
             if r.width() > 14.0 {
                 let text = filmcraft_project::plain_text(&c.text).replace('\n', " ");
-                // in reading order; Arabic and Hebrew start at the block's right edge
-                crate::rtl::paint_line(
-                    &p.with_clip_rect(r.shrink2(vec2(4.0, 0.0)).intersect(lane)),
-                    Rect::from_min_max(pos2(r.min.x + 5.0, r.min.y), pos2(r.max.x - 5.0, r.max.y)),
-                    &text,
-                    Tokens::ui(11.0),
-                    if tr.enabled { Color32::WHITE } else { t.text_dim },
-                );
+                // a right-to-left caption starts at the block's right edge, so a clipped one still
+                // shows its start
+                let rtl = unicode_bidi::get_base_direction(text.as_str()) == unicode_bidi::Direction::Rtl;
+                let color = if tr.enabled { Color32::WHITE } else { t.text_dim };
+                let galley = p.layout_no_wrap(text, Tokens::ui(11.0), color);
+                let x = if rtl { r.max.x - 5.0 - galley.size().x } else { r.min.x + 5.0 };
+                let top = r.center().y - galley.size().y / 2.0;
+                p.with_clip_rect(r.shrink2(vec2(4.0, 0.0)).intersect(lane)).galley(pos2(x, top), galley, color);
             }
             app.auto.add(&format!("timeline.caption.{}", c.id.0), r.intersect(lane), &c.text);
         }

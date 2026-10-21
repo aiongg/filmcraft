@@ -5,6 +5,7 @@
 
 use std::sync::OnceLock;
 
+use craft_ui::direction;
 use craft_ui::fonts::{CraftFace, Family, I18nScripts, Stack, SystemFonts, UiFonts};
 use egui::{Color32, FontData, FontDefinitions, FontFamily, FontId, Stroke, TextStyle, Visuals};
 use serde::{Deserialize, Serialize};
@@ -458,14 +459,17 @@ pub(crate) fn font_stack(language: crate::i18n::Language, system: SystemFonts) -
     stack
 }
 
-/// Install the UI fonts for `language`. Call it again when the interface language changes.
-pub fn install_fonts(ctx: &egui::Context, language: crate::i18n::Language) {
+/// Install the UI fonts and interface direction for `language` (`CRAFT_UI_DIRECTION=rtl` mirrors
+/// a left-to-right language, for checking layouts). Call it again when the interface language
+/// changes.
+pub fn install_language(ctx: &egui::Context, language: crate::i18n::Language) {
     font_stack(language, SystemFonts::AfterCraft).install(ctx);
+    direction::apply(ctx, direction::resolve(language.code(), direction::Setting::Language));
 }
 
-/// Install the UI fonts for the current interface language and the egui visuals.
+/// Install the UI fonts and direction for the current interface language and the egui visuals.
 pub fn install(ctx: &egui::Context, t: &Tokens) {
-    install_fonts(ctx, crate::i18n::current());
+    install_language(ctx, crate::i18n::current());
     apply_visuals(ctx, t);
 }
 
@@ -675,5 +679,27 @@ mod tests {
         for c in ['A', 'Ж', '⇧', '▸'] {
             assert!(fonts.has_glyph(&FontId::new(13.0, FontFamily::Proportional), c), "{c}");
         }
+    }
+
+    /// Arabic captions and names are plain labels: the toolkit lays them out in reading order, so
+    /// in "كلمة أخرى" the second word draws left of the first, its last letter leftmost.
+    #[test]
+    fn arabic_text_draws_in_reading_order() {
+        let ctx = egui::Context::default();
+        install(&ctx, &Tokens::for_kind(ThemeKind::default()));
+        ctx.run_ui(egui::RawInput::default(), |_| {}).textures_delta.clear();
+        let font = FontId::proportional(13.0);
+        if !ctx.fonts_mut(|f| f.has_glyphs(&font, "كلمة")) {
+            eprintln!("SKIPPED: no craft-fonts or installed Arabic font");
+            return;
+        }
+        let galley = ctx.fonts_mut(|f| f.layout_no_wrap("كلمة أخرى".into(), font.clone(), Color32::WHITE));
+        let drawn: Vec<_> = galley.rows.iter().flat_map(|r| &r.glyphs).filter(|g| !g.uv_rect.is_nothing()).collect();
+        let xs = |word: &str| drawn.iter().filter(|g| word.contains(g.chr)).map(|g| g.pos.x).collect::<Vec<f32>>();
+        let (first, second) = (xs("كلمة"), xs("أخرى"));
+        assert!(!first.is_empty() && !second.is_empty());
+        assert!(second.iter().fold(f32::MIN, |a, &b| a.max(b)) < first.iter().fold(f32::MAX, |a, &b| a.min(b)), "{first:?} {second:?}");
+        assert_eq!(drawn.iter().min_by(|a, b| a.pos.x.total_cmp(&b.pos.x)).map(|g| g.chr), Some('ى'));
+        ctx.run_ui(egui::RawInput::default(), |_| {}).textures_delta.clear();
     }
 }

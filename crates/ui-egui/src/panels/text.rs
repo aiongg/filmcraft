@@ -234,18 +234,14 @@ fn captions(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
                         }
                         let key = egui::Id::unique(("cap-text", c.id.0));
                         let mut buf = ui.data(|d| d.get_temp::<String>(key)).unwrap_or_else(|| c.text.clone());
-                        let resp = if crate::rtl::has_rtl(&buf) && !ui.memory(|m| m.has_focus(key.with("te"))) {
-                            reading_order(ui, &buf, key.with("te"))
-                        } else {
-                            ui.add(
-                                egui::TextEdit::multiline(&mut buf)
-                                    .id(key.with("te"))
-                                    .desired_rows(1)
-                                    .desired_width(ui.available_width())
-                                    .font(Tokens::ui(12.5))
-                                    .frame(egui::Frame::NONE),
-                            )
-                        };
+                        let resp = ui.add(
+                            egui::TextEdit::multiline(&mut buf)
+                                .id(key.with("te"))
+                                .desired_rows(1)
+                                .desired_width(ui.available_width())
+                                .font(Tokens::ui(12.5))
+                                .frame(egui::Frame::NONE),
+                        );
                         app.auto.add(&format!("text.captions.{}.text", c.id.0), resp.rect, "Caption text");
                         if resp.has_focus() {
                             ui.data_mut(|d| d.insert_temp(key, buf.clone()));
@@ -340,22 +336,6 @@ pub fn caption_properties(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect)
         ui.label(egui::RichText::new(tc(c.duration)).font(Tokens::mono(11.5)).color(t.text));
     });
     run(app, ui, actions);
-}
-
-/// A caption's text in reading order ([`crate::rtl::Lines`]) in place of its `TextEdit`, which
-/// shows right-to-left words in logical order. A click hands focus to the `TextEdit` (`id`), so the
-/// text is edited in logical order and shown in reading order again when the field loses focus.
-fn reading_order(ui: &mut egui::Ui, text: &str, id: egui::Id) -> egui::Response {
-    let margin = vec2(4.0, 2.0); // a TextEdit's own margin, so the text does not move on focus
-    let color = ui.visuals().widgets.inactive.text_color();
-    let width = ui.available_width();
-    let lines = crate::rtl::Lines::new(ui.painter(), text, Tokens::ui(12.5), color, (width - 2.0 * margin.x).max(0.0));
-    let (rect, resp) = ui.allocate_exact_size(vec2(width, lines.size.y + 2.0 * margin.y), Sense::click());
-    lines.paint(ui.painter(), rect.shrink2(margin), color);
-    if resp.clicked() {
-        ui.memory_mut(|m| m.request_focus(id));
-    }
-    resp.on_hover_cursor(egui::CursorIcon::Text)
 }
 
 fn transcript(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {

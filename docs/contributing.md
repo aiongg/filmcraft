@@ -98,11 +98,12 @@ translation draws without installed fonts (`craft_ui::fonts::assert_covers`); Ko
 until craft-fonts has a Hangul face. Switching to Japanese, Chinese or Korean is refused when no
 face covers it (`i18n::font_available`).
 
-Arabic text uses the `Arab` craft-fonts face, Hebrew an installed one. egui shapes each font run (letters join) but lays
-runs out left to right with no bidi pass, so captions on the timeline and in the Text panel are laid
-out in reading order by `rtl::Lines` (UAX #9 via unicode-bidi, each right-to-left word its own layout
-section). A caption being edited shows egui's logical order, since `TextEdit` places the caret by
-character index.
+Arabic text uses the `Arab` craft-fonts face, Hebrew an installed one. The suite's patched egui
+(`[patch.crates-io]` in `Cargo.toml`) runs the Unicode Bidirectional Algorithm in every label and
+text field, so captions, names and edited text are plain egui text in reading order. Timeline
+caption blocks start a right-to-left caption at the block's right edge. `theme::install_language`
+also sets the interface direction (`craft_ui::direction`); FilmCraft ships no right-to-left
+language yet, so `CRAFT_UI_DIRECTION=rtl` is the way to see the mirrored layout.
 
 ## 3. Quality gates
 
