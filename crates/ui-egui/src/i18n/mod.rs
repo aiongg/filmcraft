@@ -12,19 +12,14 @@
 //! - [`tr_ctx`]: when one English word needs different translations (the Edit menu, the Edit button).
 //! - [`fmt`]: fill `{name}` placeholders after translating a template; translators may reorder them.
 //!
-//! Japanese text uses the Japanese craft-fonts when FilmCraft was built with them (`CRAFT_FONTS_DIR`;
-//! `theme::install` already puts them in every font family, see [`craft_japanese_font`]), otherwise
-//! a font already installed on the system ([`system_japanese_font`]); with neither, switching to
-//! Japanese is refused with a message.
-//!
-//! Simplified Chinese uses the Chinese fallback `theme::install` always adds (craft-fonts Hans/Hant
-//! faces, otherwise one installed system face, see `cjk.rs`); without one, switching to Chinese is
-//! refused the same way ([`chinese_font_available`]).
+//! Japanese, Chinese and Korean text needs the craft-fonts faces (built with `CRAFT_FONTS_DIR`) or
+//! an installed face; without one, switching to that language is refused with a message
+//! ([`font_available`]).
 
 mod catalog;
 
 use std::cell::Cell;
-use std::sync::{Arc, OnceLock};
+use std::sync::OnceLock;
 
 use catalog::Catalog;
 
@@ -47,21 +42,9 @@ pub enum Language {
     Fr,
     Id,
     It,
-    /// Korean; Hangul needs an installed system font ([`korean_font_available`]).
+    /// Korean; Hangul needs an installed system font ([`font_available`]).
     Ko,
 }
-
-static JAPANESE: OnceLock<Catalog> = OnceLock::new();
-static SPANISH: OnceLock<Catalog> = OnceLock::new();
-static PORTUGUESE: OnceLock<Catalog> = OnceLock::new();
-static UKRAINIAN: OnceLock<Catalog> = OnceLock::new();
-static CHINESE: OnceLock<Catalog> = OnceLock::new();
-static GERMAN: OnceLock<Catalog> = OnceLock::new();
-static RUSSIAN: OnceLock<Catalog> = OnceLock::new();
-static FRENCH: OnceLock<Catalog> = OnceLock::new();
-static KOREAN: OnceLock<Catalog> = OnceLock::new();
-static INDONESIAN: OnceLock<Catalog> = OnceLock::new();
-static ITALIAN: OnceLock<Catalog> = OnceLock::new();
 
 impl Language {
     pub const ALL: [Self; 12] = [Self::En, Self::Ja, Self::Es, Self::PtBr, Self::Uk, Self::ZhCn, Self::De, Self::Ru, Self::Fr, Self::Id, Self::Ko, Self::It];
@@ -159,22 +142,30 @@ impl Language {
         }
     }
 
-    /// The language's catalog (none for English, the source language).
-    fn catalog(self) -> Option<&'static Catalog> {
+    /// The catalog file of a translated language (none for English, the source language).
+    fn source(self) -> Option<&'static str> {
         match self {
             Self::En => None,
-            Self::Ja => Some(JAPANESE.get_or_init(|| Catalog::parse(include_str!("ja.tsv")))),
-            Self::Es => Some(SPANISH.get_or_init(|| Catalog::parse(include_str!("es.tsv")))),
-            Self::PtBr => Some(PORTUGUESE.get_or_init(|| Catalog::parse(include_str!("pt-br.tsv")))),
-            Self::Uk => Some(UKRAINIAN.get_or_init(|| Catalog::parse(include_str!("uk.tsv")))),
-            Self::ZhCn => Some(CHINESE.get_or_init(|| Catalog::parse(include_str!("zh-cn.tsv")))),
-            Self::De => Some(GERMAN.get_or_init(|| Catalog::parse(include_str!("de.tsv")))),
-            Self::Ru => Some(RUSSIAN.get_or_init(|| Catalog::parse(include_str!("ru.tsv")))),
-            Self::Fr => Some(FRENCH.get_or_init(|| Catalog::parse(include_str!("fr.tsv")))),
-            Self::Id => Some(INDONESIAN.get_or_init(|| Catalog::parse(include_str!("id.tsv")))),
-            Self::It => Some(ITALIAN.get_or_init(|| Catalog::parse(include_str!("it.tsv")))),
-            Self::Ko => Some(KOREAN.get_or_init(|| Catalog::parse(include_str!("ko.tsv")))),
+            Self::Ja => Some(include_str!("ja.tsv")),
+            Self::Es => Some(include_str!("es.tsv")),
+            Self::PtBr => Some(include_str!("pt-br.tsv")),
+            Self::Uk => Some(include_str!("uk.tsv")),
+            Self::ZhCn => Some(include_str!("zh-cn.tsv")),
+            Self::De => Some(include_str!("de.tsv")),
+            Self::Ru => Some(include_str!("ru.tsv")),
+            Self::Fr => Some(include_str!("fr.tsv")),
+            Self::Id => Some(include_str!("id.tsv")),
+            Self::It => Some(include_str!("it.tsv")),
+            Self::Ko => Some(include_str!("ko.tsv")),
         }
+    }
+
+    /// The language's parsed catalog.
+    fn catalog(self) -> Option<&'static Catalog> {
+        static CATALOGS: [OnceLock<Catalog>; Language::ALL.len()] = [const { OnceLock::new() }; Language::ALL.len()];
+        let text = self.source()?;
+        let slot = CATALOGS.get(Self::ALL.iter().position(|l| *l == self)?)?;
+        Some(slot.get_or_init(|| Catalog::parse(text)))
     }
 
     /// Translate an English UI string; unknown strings come back unchanged.
@@ -246,94 +237,28 @@ pub fn fmt(template: &str, args: &[(&str, &str)]) -> String {
     out
 }
 
-/// Text every Japanese interface font must cover (menus use kanji, hiragana and katakana).
-const JAPANESE_SAMPLE: &str = "日本語ファイル編集あア";
-
-/// Installed families preferred for Japanese interface text, best first (Gothic / sans-serif faces
-/// read best at menu sizes). Any other installed face that covers [`JAPANESE_SAMPLE`] is used if
-/// none of these is present.
-const PREFERRED_JAPANESE: &[&str] = &[
-    "Hiragino Sans",
-    "Hiragino Kaku Gothic ProN",
-    "Hiragino Kaku Gothic Pro",
-    "Yu Gothic UI",
-    "Yu Gothic",
-    "Meiryo UI",
-    "Meiryo",
-    "Noto Sans CJK JP",
-    "Noto Sans JP",
-    "Source Han Sans JP",
-    "Source Han Sans",
-    "IPAexGothic",
-    "IPAGothic",
-    "TakaoGothic",
-    "VL Gothic",
-];
-
-const JAPANESE_FONT: &str = "system-japanese";
-
-/// A Japanese font already installed on this system, for the interface (none is bundled). Looked up
-/// once per process: the system font folders are scanned on first use (name tables only), then the
-/// chosen face's file is read. `None` on the web and on systems without a Japanese font.
-pub fn system_japanese_font() -> Option<Arc<egui::FontData>> {
-    static FONT: OnceLock<Option<Arc<egui::FontData>>> = OnceLock::new();
-    FONT.get_or_init(|| {
-        filmcraft_text::fonts::scan_system();
-        let faces: Vec<_> = filmcraft_text::fonts::all_faces().into_iter().filter(|f| f.info.origin == "system" && !f.info.italic).collect();
-        let covers = |f: &filmcraft_text::fonts::Face| f.covers_text(JAPANESE_SAMPLE);
-        // within a family, the face closest to regular weight
-        let by_weight = |f: &&Arc<filmcraft_text::fonts::Face>| f.info.weight.abs_diff(400);
-        let preferred =
-            PREFERRED_JAPANESE.iter().find_map(|name| faces.iter().filter(|f| f.info.family.eq_ignore_ascii_case(name) && covers(f)).min_by_key(by_weight));
-        let face = preferred.or_else(|| faces.iter().filter(|f| covers(f)).min_by_key(by_weight))?;
-        // kept for the life of the process (one font, read once) so installing it again after a
-        // theme change shares the bytes instead of copying the whole file
-        let bytes: &'static [u8] = Box::leak(face.data()?.into_boxed_slice());
-        Some(Arc::new(egui::FontData::from_blob(Arc::new(bytes), face.info.index)))
-    })
-    .clone()
-}
-
-/// Whether the craft-fonts build input (empty unless built with `CRAFT_FONTS_DIR`) supplies a
-/// Japanese interface font: some craft-fonts face covers [`JAPANESE_SAMPLE`]. `theme::install` adds
-/// these faces to every font family, so nothing else needs installing (and no system scan runs).
-pub fn craft_japanese_font() -> bool {
-    filmcraft_text::fonts::craft_japanese().next().is_some()
-        && filmcraft_text::fonts::all_faces()
-            .iter()
-            .any(|f| f.info.origin == filmcraft_text::fonts::CRAFT_ORIGIN && JAPANESE_SAMPLE.chars().all(|c| f.has_char(c)))
-}
-
-/// Japanese for the interface: true when built with the craft-fonts (already installed by
-/// `theme::install`). Otherwise add the system's Japanese font as the last fallback of every theme font family, from the next
-/// pass on. Returns false (and changes nothing) when no Japanese font is installed. Call it again
-/// after `theme::install`, which replaces the font definitions.
-pub fn install_japanese_font(ctx: &egui::Context) -> bool {
-    if craft_japanese_font() {
-        return true;
+/// Text the interface fonts must draw for a language whose script the bundled faces lack: kanji,
+/// hiragana and katakana for Japanese menus, simplified and traditional hanzi, Hangul.
+fn font_sample(language: Language) -> Option<&'static str> {
+    match language {
+        Language::Ja => Some("日本語ファイル編集あア"),
+        Language::ZhCn => Some("中文轨道配乐音效简体汉语繁體漢語车"),
+        Language::Ko => Some("한국어입력테스트"),
+        _ => None,
     }
-    let Some(font) = system_japanese_font() else { return false };
-    let families = crate::theme::font_families()
-        .into_iter()
-        .map(|family| egui::epaint::text::InsertFontFamily { family, priority: egui::epaint::text::FontPriority::Lowest })
-        .collect();
-    // queued for the next pass (works before the first frame); a no-op when already installed
-    ctx.add_font(egui::epaint::text::FontInsert { name: JAPANESE_FONT.into(), data: (*font).clone(), families });
-    true
 }
 
-/// Whether the interface can show Simplified Chinese: `theme::install` always adds a Chinese
-/// fallback face when there is one (craft-fonts Hans/Hant faces, otherwise an installed system
-/// face, see `cjk.rs`), so nothing needs installing here. False on systems without either.
-pub fn chinese_font_available() -> bool {
-    crate::cjk::available()
-}
-
-/// Whether the interface can show Korean: `theme::install` adds an installed system Hangul face
-/// (Malgun Gothic, Apple SD Gothic Neo, Noto Sans CJK KR…, see `cjk.rs`) when there is one; none
-/// is bundled. False on systems (and the web) without one.
-pub fn korean_font_available() -> bool {
-    crate::cjk::korean_available()
+/// Whether the interface fonts can draw `language`: the bundled faces, the craft-fonts faces
+/// (built with `CRAFT_FONTS_DIR`) or an installed face cover its script. Japanese, Chinese and
+/// Korean need one of the last two. Checked once per language per process.
+pub fn font_available(language: Language) -> bool {
+    static AVAILABLE: [OnceLock<bool>; Language::ALL.len()] = [const { OnceLock::new() }; Language::ALL.len()];
+    let Some(sample) = font_sample(language) else { return true };
+    let Some(slot) = Language::ALL.iter().position(|l| *l == language).and_then(|i| AVAILABLE.get(i)) else { return false };
+    *slot.get_or_init(|| {
+        let mut fonts = crate::theme::font_stack(Language::En, craft_ui::fonts::SystemFonts::AfterCraft).fonts(true);
+        fonts.has_glyphs(&egui::FontId::proportional(13.0), sample)
+    })
 }
 
 #[cfg(test)]
@@ -615,7 +540,7 @@ mod tests {
         let mut app = crate::FilmcraftApp::new(filmcraft_engine::Session::default());
         let ctx = egui::Context::default();
         let r = crate::menus::invoke(&mut app, &ctx, "app.language.chinese", serde_json::json!({}));
-        if !chinese_font_available() {
+        if !font_available(Language::ZhCn) {
             assert!(r.is_err(), "{r:?}");
             assert_eq!(app.ui.language, Language::En);
             assert_eq!(app.session.prefs.general.interface_language, "system");
@@ -891,7 +816,7 @@ mod tests {
         let mut app = crate::FilmcraftApp::new(filmcraft_engine::Session::default());
         let ctx = egui::Context::default();
         // Japanese needs an installed font (see `japanese_needs_an_installed_font`); skip that step without one
-        if craft_japanese_font() || system_japanese_font().is_some() {
+        if font_available(Language::Ja) {
             crate::menus::invoke(&mut app, &ctx, "app.language.japanese", serde_json::json!({})).unwrap();
             assert_eq!(app.ui.language, Language::Ja);
             let saved = serde_json::to_string(&app.ui).unwrap();
@@ -1344,38 +1269,46 @@ mod tests {
         let ctx = egui::Context::default();
         crate::theme::install(&ctx, &crate::theme::Tokens::for_kind(crate::theme::ThemeKind::default()));
         let r = crate::menus::invoke(&mut app, &ctx, "app.language.japanese", serde_json::json!({}));
-        let craft = craft_japanese_font();
-        if !craft && system_japanese_font().is_none() {
+        if !font_available(Language::Ja) {
             // no craft-fonts and no system font: refused, and the interface stays English
             assert!(r.is_err(), "{r:?}");
             assert_eq!(app.ui.language, Language::En);
             return;
         }
         assert!(r.is_ok(), "{r:?}");
-        let mut output = ctx.run_ui(egui::RawInput::default(), |_| {});
-        output.textures_delta.clear();
+        set_current(Language::En);
+        crate::theme::install_fonts(&ctx, Language::Ja);
+        ctx.run_ui(egui::RawInput::default(), |_| {}).textures_delta.clear();
         ctx.fonts_mut(|fonts| {
-            // every theme family falls back to the craft-fonts (when built with them; no system
-            // font is added then) or to the system Japanese font
-            for family in crate::theme::font_families() {
-                let stack = fonts.definitions().families.get(&family).cloned().unwrap_or_default();
-                if craft {
-                    assert!(stack.last().is_some_and(|n| n.starts_with("craft:")), "{family:?}: {stack:?}");
-                    assert!(!stack.iter().any(|n| n == JAPANESE_FONT), "{family:?}: {stack:?}");
-                } else {
-                    assert_eq!(stack.last().map(String::as_str), Some(JAPANESE_FONT), "{family:?}: {stack:?}");
-                }
-            }
-            // and the glyphs resolve. (Only families whose replacement-box face is another font:
-            // egui's `has_glyph` reports false for any character served by the face it also uses
-            // for the replacement box, which in the Inter-only "medium"/"semibold" stacks is the
-            // Japanese font itself.)
             for family in [egui::FontFamily::Proportional, egui::FontFamily::Monospace] {
                 let font = egui::FontId::new(13.0, family);
-                for ch in JAPANESE_SAMPLE.chars() {
+                for ch in font_sample(Language::Ja).unwrap_or_default().chars() {
                     assert!(fonts.has_glyph(&font, ch), "missing {ch} in {font:?}");
                 }
             }
         });
+    }
+
+    /// Every shipped translation and every language's menu name draws with the UI fonts alone, no
+    /// installed fonts. Japanese and Chinese need the craft-fonts faces, so they are checked in a
+    /// build with them (`CRAFT_FONTS_DIR`); craft-fonts has no Hangul face yet, so Korean still
+    /// needs an installed one and is left out.
+    #[test]
+    fn ui_fonts_cover_every_catalog() {
+        use craft_ui::fonts::{Sample, SystemFonts, assert_covers};
+        let craft = crate::theme::craft_faces();
+        let checked: Vec<Language> = Language::ALL.into_iter().filter(|l| *l != Language::Ko && (!craft.is_empty() || font_sample(*l).is_none())).collect();
+        let entries: Vec<(Language, String, String)> =
+            checked.iter().flat_map(|l| catalog::parse_entries(l.source().unwrap_or_default()).0.into_iter().map(|(_, key, text)| (*l, key, text))).collect();
+        let mut samples: Vec<Sample<'_>> = entries.iter().map(|(l, key, text)| Sample { language: l.code(), key, text }).collect();
+        samples.extend(checked.iter().map(|l| Sample { language: l.code(), key: "language name", text: l.name() }));
+        // names of media and tracks in scripts the interface isn't translated to
+        for (script, text) in [("Arab", "مقطع الفيديو الأول"), ("Thai", "ไฟล์วิดีโอ")] {
+            if craft.iter().any(|f| f.scripts.contains(&script)) {
+                samples.push(Sample { language: script, key: "content", text });
+            }
+        }
+        assert!(samples.len() > 1000, "{}", samples.len());
+        assert_covers(&crate::theme::font_stack(Language::En, SystemFonts::Off), samples);
     }
 }

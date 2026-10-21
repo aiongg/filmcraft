@@ -3,8 +3,9 @@
 //! The default theme follows the look of Premiere Pro's current dark UI (values measured from
 //! black-box screenshots, see `plan/premiere/02-ui-ux.md`); fonts are Inter + JetBrains Mono (OFL).
 
-use std::sync::Arc;
+use std::sync::OnceLock;
 
+use craft_ui::fonts::{CraftFace, Family, I18nScripts, Stack, SystemFonts, UiFonts};
 use egui::{Color32, FontData, FontDefinitions, FontFamily, FontId, Stroke, TextStyle, Visuals};
 use serde::{Deserialize, Serialize};
 
@@ -414,55 +415,58 @@ pub fn font_families() -> Vec<FontFamily> {
     vec![FontFamily::Proportional, FontFamily::Monospace, FontFamily::Name("semibold".into()), FontFamily::Name("medium".into())]
 }
 
-/// Install the Latin UI fonts, Chinese fallback (craft-fonts or an installed face), Japanese
-/// craft-fonts, Arabic and Hebrew fallbacks (craft-fonts or installed faces, [`crate::rtl`]) and
-/// egui visuals. Document names keep their glyphs in every interface language.
-pub fn install(ctx: &egui::Context, t: &Tokens) {
-    let mut fonts = FontDefinitions::default();
-    fonts.font_data.insert("inter".into(), Arc::new(FontData::from_static(filmcraft_text::fonts::INTER_REGULAR)));
-    fonts.font_data.insert("inter-medium".into(), Arc::new(FontData::from_static(filmcraft_text::fonts::INTER_MEDIUM)));
-    fonts.font_data.insert("inter-semibold".into(), Arc::new(FontData::from_static(filmcraft_text::fonts::INTER_SEMIBOLD)));
-    fonts.font_data.insert("jbmono".into(), Arc::new(FontData::from_static(filmcraft_text::fonts::JETBRAINS_MONO_REGULAR)));
-    fonts.families.entry(FontFamily::Proportional).or_default().insert(0, "inter".into());
-    fonts.families.entry(FontFamily::Monospace).or_default().insert(0, "jbmono".into());
-    fonts.families.insert(FontFamily::Name("semibold".into()), vec!["inter-semibold".into(), "inter".into()]);
-    fonts.families.insert(FontFamily::Name("medium".into()), vec!["inter-medium".into(), "inter".into()]);
-    // Japanese before Chinese: the two share code points, and Japanese text must keep Japanese
-    // glyph forms; Chinese faces still cover the hanzi Japanese fonts lack
-    add_craft_fonts(&mut fonts);
-    crate::cjk::install(&mut fonts);
-    crate::rtl::install(&mut fonts);
-    // Last: egui's Hack has the arrows and symbols the UI draws in plain text (⇧ in shortcuts, ▸ in
-    // menu paths) that Inter and egui's proportional fonts lack; without it they are boxes where no
-    // installed fallback face has them (Windows, macOS).
-    for (family, stack) in &mut fonts.families {
-        if *family != FontFamily::Monospace && !stack.iter().any(|f| f == "Hack") {
-            stack.push("Hack".into());
+/// The craft-fonts faces this build embedded ([`filmcraft_text::fonts::CRAFT_FONTS`]; empty unless
+/// built with `CRAFT_FONTS_DIR`).
+pub(crate) fn craft_faces() -> &'static [CraftFace] {
+    static FACES: OnceLock<Vec<CraftFace>> = OnceLock::new();
+    FACES.get_or_init(|| {
+        filmcraft_text::fonts::CRAFT_FONTS
+            .iter()
+            .map(|f| CraftFace { family: f.family, style: f.style, scripts: f.scripts, bytes: f.bytes, index: 0 })
+            .collect()
+    })
+}
+
+/// FilmCraft's UI fonts for `language`: Inter and JetBrains Mono, then the craft-fonts faces and
+/// installed fonts in the suite's order ([`craft_ui::fonts`]).
+pub(crate) fn ui_fonts(language: crate::i18n::Language) -> UiFonts<'static> {
+    let codes: Vec<&str> = crate::i18n::Language::ALL.iter().map(|l| l.code()).collect();
+    UiFonts::new(&I18nScripts)
+        .app_face("inter", FontData::from_static(filmcraft_text::fonts::INTER_REGULAR), &[FontFamily::Proportional])
+        .app_face("inter-medium", FontData::from_static(filmcraft_text::fonts::INTER_MEDIUM), &[FontFamily::Name("medium".into())])
+        .app_face("inter-semibold", FontData::from_static(filmcraft_text::fonts::INTER_SEMIBOLD), &[FontFamily::Name("semibold".into())])
+        .app_face("jbmono", FontData::from_static(filmcraft_text::fonts::JETBRAINS_MONO_REGULAR), &[FontFamily::Monospace])
+        .family(Family::named("medium").weight(500))
+        .family(Family::named("semibold").weight(600))
+        .craft_faces(craft_faces())
+        .languages(&codes)
+        .ui_language(language.code())
+}
+
+/// The built stack for `language`, with egui's Hack at the end of every proportional family: it
+/// has the arrows and symbols the UI draws in plain text (⇧ in shortcuts, ▸ in menu paths) that
+/// Inter lacks, which are boxes where no installed face has them (Windows, macOS).
+pub(crate) fn font_stack(language: crate::i18n::Language, system: SystemFonts) -> Stack {
+    let mut stack = ui_fonts(language).system_fonts(system).stack();
+    let hack = FontDefinitions::default().font_data.get("Hack").map(|d| (**d).clone());
+    if let Some(hack) = hack {
+        let families: Vec<FontFamily> = stack.definitions.families.keys().filter(|f| **f != FontFamily::Monospace).cloned().collect();
+        for family in families {
+            stack.insert(&family, usize::MAX, "Hack", hack.clone());
         }
     }
-    ctx.set_fonts(fonts);
+    stack
+}
+
+/// Install the UI fonts for `language`. Call it again when the interface language changes.
+pub fn install_fonts(ctx: &egui::Context, language: crate::i18n::Language) {
+    font_stack(language, SystemFonts::AfterCraft).install(ctx);
+}
+
+/// Install the UI fonts for the current interface language and the egui visuals.
+pub fn install(ctx: &egui::Context, t: &Tokens) {
+    install_fonts(ctx, crate::i18n::current());
     apply_visuals(ctx, t);
-}
-
-/// Name of the egui font for a craft-fonts entry.
-fn craft_font_name(f: &filmcraft_text::fonts::CraftFont) -> String {
-    format!("craft:{} {}", f.family, f.style)
-}
-
-/// Append the Japanese craft-fonts (empty unless built with `CRAFT_FONTS_DIR`) as the last fallbacks
-/// of every font family, after the app's own fonts: BIZ UDPGothic first (bold before regular in
-/// the "semibold" and "medium" families), then the other Japanese faces.
-fn add_craft_fonts(fonts: &mut FontDefinitions) {
-    let jpan: Vec<_> = filmcraft_text::fonts::craft_japanese().collect();
-    for f in &jpan {
-        fonts.font_data.insert(craft_font_name(f), Arc::new(FontData::from_static(f.bytes)));
-    }
-    for (family, stack) in fonts.families.iter_mut() {
-        let heavy = matches!(family, FontFamily::Name(n) if matches!(n.as_ref(), "semibold" | "medium"));
-        let mut order = jpan.clone();
-        order.sort_by_key(|f| (!f.family.contains("Gothic"), (f.style == "Bold") != heavy));
-        stack.extend(order.iter().map(|f| craft_font_name(f)));
-    }
 }
 
 pub fn apply_visuals(ctx: &egui::Context, t: &Tokens) {
@@ -522,16 +526,6 @@ pub fn apply_visuals(ctx: &egui::Context, t: &Tokens) {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    const JAPANESE: &str = "日本語の文字";
-
-    fn installed() -> egui::Context {
-        let ctx = egui::Context::default();
-        install(&ctx, &Tokens::for_kind(ThemeKind::default()));
-        let mut out = ctx.run_ui(egui::RawInput::default(), |_| {});
-        out.textures_delta.clear();
-        ctx
-    }
 
     #[test]
     fn light_theme_has_light_chrome_and_plot_surfaces() {
@@ -611,11 +605,7 @@ mod tests {
     #[test]
     fn chinese_names_render_in_every_theme_and_font_family() {
         const CHINESE: &str = "中文旁白音乐声轨测试简体汉语繁體漢語车";
-        filmcraft_text::fonts::scan_system();
-        let available = filmcraft_text::fonts::all_faces()
-            .iter()
-            .any(|f| matches!(f.info.origin, "system" | filmcraft_text::fonts::CRAFT_ORIGIN) && CHINESE.chars().all(|c| f.has_char(c)));
-        if !available {
+        if !crate::i18n::font_available(crate::i18n::Language::ZhCn) {
             eprintln!("SKIPPED: no craft-fonts or installed Chinese font");
             return;
         }
@@ -645,9 +635,7 @@ mod tests {
     #[test]
     fn korean_text_renders_with_an_installed_korean_font() {
         const KOREAN: &str = "한국어 입력 테스트";
-        filmcraft_text::fonts::scan_system();
-        let available = filmcraft_text::fonts::all_faces().iter().any(|f| f.info.origin == "system" && KOREAN.chars().all(|c| f.has_char(c)));
-        if !available {
+        if !crate::i18n::font_available(crate::i18n::Language::Ko) {
             eprintln!("SKIPPED: no installed Korean font");
             return;
         }
@@ -668,53 +656,24 @@ mod tests {
         ctx.run_ui(egui::RawInput::default(), |_| {}).textures_delta.clear();
     }
 
-    /// Built with craft-fonts: every font family ends with the Japanese faces (BIZ UDPGothic
-    /// first), and Japanese text gets real glyphs, not the replacement box.
+    /// A Latin interface keeps FilmCraft's faces first in every family, with or without craft-fonts,
+    /// and egui's Hack at the end of the proportional ones for ⇧ and ▸.
     #[test]
-    fn japanese_renders_with_craft_fonts() {
-        if filmcraft_text::fonts::craft_japanese().next().is_none() {
-            eprintln!("SKIPPED: built without craft-fonts (set CRAFT_FONTS_DIR to run)");
-            return;
+    fn latin_interfaces_lead_with_the_app_faces() {
+        let stack = font_stack(crate::i18n::Language::En, SystemFonts::Off);
+        for (family, first) in [
+            (FontFamily::Proportional, "inter"),
+            (FontFamily::Monospace, "jbmono"),
+            (FontFamily::Name("semibold".into()), "inter-semibold"),
+            (FontFamily::Name("medium".into()), "inter-medium"),
+        ] {
+            let chain = stack.chain(&family);
+            assert_eq!(chain.first().map(String::as_str), Some(first), "{family:?}: {chain:?}");
+            assert_eq!(chain.last().map(String::as_str) == Some("Hack"), family != FontFamily::Monospace, "{family:?}: {chain:?}");
         }
-        let ctx = installed();
-        ctx.fonts_mut(|fonts| {
-            let defs = fonts.definitions().clone();
-            for (family, stack) in &defs.families {
-                // installed right-to-left faces (Hebrew is not in craft-fonts) come after the craft run
-                let stack: Vec<&String> = stack.iter().filter(|n| !crate::rtl::is_system_face(n)).collect();
-                let first = stack.iter().position(|n| n.starts_with("craft:")).unwrap_or(stack.len());
-                assert!(first > 0 && stack[first..].iter().all(|n| n.starts_with("craft:")), "{family:?}: {stack:?}");
-                let first_japanese = stack.iter().find(|n| n.starts_with("craft:BIZ") || n.starts_with("craft:Shippori"));
-                assert!(first_japanese.is_some_and(|n| n.starts_with("craft:BIZ UDPGothic")), "{family:?}: {stack:?}");
-            }
-            for family in [FontFamily::Proportional, FontFamily::Monospace] {
-                let font = FontId::new(13.0, family);
-                for ch in JAPANESE.chars() {
-                    assert!(fonts.has_glyph(&font, ch), "missing {ch} in {font:?}");
-                }
-            }
-        });
-        // laid out and drawn: the replacement box (U+FFFD) would show as one glyph per character
-        // from the fallback face; a real face gives each character its own width
-        let galley = ctx.fonts_mut(|f| f.layout_no_wrap(JAPANESE.into(), FontId::new(13.0, FontFamily::Proportional), Color32::WHITE));
-        assert_eq!(galley.rows.iter().map(|r| r.glyphs.len()).sum::<usize>(), JAPANESE.chars().count());
-        assert!(galley.size().x > 13.0 * 4.0, "{:?}", galley.size());
-    }
-
-    /// Latin text keeps its UI faces, with or without craft-fonts and system Chinese fonts.
-    #[test]
-    fn works_without_craft_fonts() {
-        let ctx = installed();
-        let n = filmcraft_text::fonts::craft_japanese().count() + crate::cjk::craft_fonts().count() + crate::rtl::craft_fonts().count();
-        ctx.fonts_mut(|fonts| {
-            let defs = fonts.definitions().clone();
-            assert_eq!(defs.font_data.keys().filter(|k| k.starts_with("craft:")).count(), n);
-            assert_eq!(defs.families[&FontFamily::Proportional].first().map(String::as_str), Some("inter"));
-            assert_eq!(defs.families[&FontFamily::Monospace].first().map(String::as_str), Some("jbmono"));
-            assert!(fonts.has_glyph(&FontId::new(13.0, FontFamily::Proportional), 'A'));
-            if n == 0 {
-                assert!(defs.families.values().flatten().all(|name| !name.starts_with("craft:")));
-            }
-        });
+        let mut fonts = stack.fonts(false);
+        for c in ['A', 'Ж', '⇧', '▸'] {
+            assert!(fonts.has_glyph(&FontId::new(13.0, FontFamily::Proportional), c), "{c}");
+        }
     }
 }

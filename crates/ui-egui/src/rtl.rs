@@ -1,8 +1,4 @@
-//! Right-to-left scripts (Arabic, Hebrew) in the interface: fallback fonts and reading order.
-//!
-//! Fonts: like [`crate::cjk`], the craft-fonts faces for these scripts (`Arab`, `Hebr`) become the
-//! last fallbacks of every UI font family. A build without them looks up one installed face per
-//! script once (Noto Sans Arabic, SF Arabic, Segoe UI…) and reuses it across theme changes.
+//! Right-to-left scripts (Arabic, Hebrew) in the interface: reading order.
 //!
 //! Reading order: egui shapes each font run with harfrust, so a word's letters join and run right
 //! to left, but it places the runs left to right in logical order with no bidi pass: in
@@ -14,118 +10,11 @@
 //! caret by character index, so a reordered galley would put it in the wrong place.
 
 use std::ops::Range;
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 
 use egui::epaint::text::{ByteIndex, LayoutJob, LayoutSection, TextFormat};
-use egui::{Color32, FontData, FontDefinitions, FontId, Galley, Painter, Rect, Vec2, pos2};
-use filmcraft_text::fonts::{CraftFont, Face};
+use egui::{Color32, FontId, Galley, Painter, Rect, Vec2, pos2};
 use unicode_bidi::{BidiClass, BidiInfo, bidi_class};
-
-/// A right-to-left script: its ISO 15924 code (as in the craft-fonts manifest), letters a face
-/// must cover, and installed families to prefer, best first.
-struct Script {
-    code: &'static str,
-    sample: &'static str,
-    preferred: &'static [&'static str],
-}
-
-const SCRIPTS: &[Script] = &[
-    Script {
-        code: "Arab",
-        sample: "ابتثجحخدذرزسشصضطظعغفقكلمنهويءآأؤإئةى،؟",
-        preferred: &[
-            "Noto Sans Arabic UI",
-            "Noto Sans Arabic",
-            "SF Arabic",
-            "Geeza Pro",
-            "Segoe UI",
-            "Noto Naskh Arabic UI",
-            "Noto Naskh Arabic",
-            "Tahoma",
-            "Arial",
-            "DejaVu Sans",
-        ],
-    },
-    Script {
-        code: "Hebr",
-        sample: "אבגדהוזחטיכךלמםנןסעפףצץקרשת",
-        preferred: &["Noto Sans Hebrew", "SF Hebrew", "Arial Hebrew", "Segoe UI", "Arial", "Tahoma", "DejaVu Sans"],
-    },
-];
-
-/// The craft-fonts faces for right-to-left scripts (empty unless built with `CRAFT_FONTS_DIR`).
-pub(crate) fn craft_fonts() -> impl Iterator<Item = &'static CraftFont> {
-    filmcraft_text::fonts::CRAFT_FONTS.iter().filter(|f| f.scripts.iter().any(|s| SCRIPTS.iter().any(|x| x.code == *s)))
-}
-
-/// Installed faces for the scripts craft-fonts does not cover, looked up once per process (native
-/// builds only). A face that covers several scripts (Segoe UI) is added once.
-fn system_fonts() -> &'static [(String, Arc<FontData>)] {
-    static FONTS: OnceLock<Vec<(String, Arc<FontData>)>> = OnceLock::new();
-    FONTS.get_or_init(|| {
-        if cfg!(target_arch = "wasm32") {
-            return Vec::new();
-        }
-        let missing: Vec<&Script> = SCRIPTS.iter().filter(|s| !craft_fonts().any(|f| f.scripts.contains(&s.code))).collect();
-        if missing.is_empty() {
-            return Vec::new();
-        }
-        filmcraft_text::fonts::scan_system();
-        let faces: Vec<_> = filmcraft_text::fonts::all_faces().into_iter().filter(|f| f.info.origin == "system" && !f.info.italic).collect();
-        let by_weight = |f: &&Arc<Face>| f.info.weight.abs_diff(400);
-        let mut chosen: Vec<&Arc<Face>> = Vec::new();
-        let mut out = Vec::new();
-        for s in missing {
-            if chosen.iter().any(|f| f.covers_text(s.sample)) {
-                continue;
-            }
-            let covers = |f: &&Arc<Face>| f.covers_text(s.sample);
-            let preferred =
-                s.preferred.iter().find_map(|name| faces.iter().filter(|f| f.info.family.eq_ignore_ascii_case(name)).filter(covers).min_by_key(by_weight));
-            let Some(face) = preferred.or_else(|| faces.iter().filter(covers).min_by_key(by_weight)) else {
-                continue;
-            };
-            let Some(data) = face.data() else {
-                continue;
-            };
-            let font = FontData::from_blob(Arc::new(data), face.info.index);
-            out.push((format!("system-{}", s.code.to_lowercase()), Arc::new(font)));
-            chosen.push(face);
-        }
-        out
-    })
-}
-
-/// Append the right-to-left faces (craft-fonts, else installed ones) after the other fallbacks of
-/// every font family. Their letters are in no other UI font, so their place among the fallbacks
-/// does not matter, and Latin text keeps the interface fonts. Installed faces come last, after
-/// the craft-fonts faces: one may be a broad face (DejaVu Sans, Segoe UI) that should not take
-/// symbols the craft-fonts faces draw.
-pub(crate) fn install(fonts: &mut FontDefinitions) {
-    let mut names = Vec::new();
-    for f in craft_fonts() {
-        let name = format!("craft:{} {}", f.family, f.style);
-        fonts.font_data.insert(name.clone(), Arc::new(FontData::from_static(f.bytes)));
-        names.push(name);
-    }
-    for (name, font) in system_fonts() {
-        fonts.font_data.insert(name.clone(), font.clone());
-        names.push(name.clone());
-    }
-    for stack in fonts.families.values_mut() {
-        for name in &names {
-            if !stack.contains(name) {
-                stack.push(name.clone());
-            }
-        }
-    }
-}
-
-/// Whether `name` is an installed right-to-left face added by [`install`].
-#[cfg(test)]
-pub(crate) fn is_system_face(name: &str) -> bool {
-    system_fonts().iter().any(|(n, _)| n == name)
-}
 
 /// Whether `text` has a right-to-left letter (Arabic, Hebrew…), the only text [`Lines`] reorders.
 pub(crate) fn has_rtl(text: &str) -> bool {
@@ -367,14 +256,12 @@ mod tests {
     #[test]
     fn lines_draw_arabic_in_reading_order() {
         let ctx = egui::Context::default();
-        let mut fonts = FontDefinitions::default();
-        install(&mut fonts);
-        if !craft_fonts().any(|f| f.scripts.contains(&"Arab")) && !system_fonts().iter().any(|(name, _)| name == "system-arab") {
+        crate::theme::install(&ctx, &crate::theme::Tokens::for_kind(crate::theme::ThemeKind::default()));
+        ctx.run_ui(egui::RawInput::default(), |_| {}).textures_delta.clear();
+        if !ctx.fonts_mut(|f| f.has_glyphs(&FontId::proportional(13.0), "كلمة")) {
             eprintln!("SKIPPED: no craft-fonts or installed Arabic font");
             return;
         }
-        ctx.set_fonts(fonts);
-        ctx.run_ui(egui::RawInput::default(), |_| {}).textures_delta.clear();
         let painter = Painter::new(ctx.clone(), egui::LayerId::background(), Rect::EVERYTHING);
         let font = FontId::proportional(13.0);
         let lines = Lines::new(&painter, "كلمة أخرى", font.clone(), Color32::WHITE, f32::INFINITY);

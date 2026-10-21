@@ -200,16 +200,15 @@ pub fn invoke(app: &mut FilmcraftApp, ctx: &egui::Context, id: &str, mut params:
             | "app.language.italian"
             | "app.language.korean"
     ) {
-        // Japanese needs the craft-fonts (built with CRAFT_FONTS_DIR) or a font installed on the system
-        if id == "app.language.japanese" && !crate::i18n::install_japanese_font(ctx) {
+        // Japanese, Chinese and Korean need the craft-fonts (built with CRAFT_FONTS_DIR) or a font
+        // installed on the system
+        if id == "app.language.japanese" && !crate::i18n::font_available(crate::i18n::Language::Ja) {
             return Err("no Japanese font is installed on this system (for example Noto Sans CJK JP); the interface stays in English".into());
         }
-        // Chinese needs the Chinese fallback theme::install adds (craft-fonts or a system face)
-        if id == "app.language.chinese" && !crate::i18n::chinese_font_available() {
+        if id == "app.language.chinese" && !crate::i18n::font_available(crate::i18n::Language::ZhCn) {
             return Err("no Chinese font is installed on this system (for example Noto Sans CJK SC or Microsoft YaHei); the interface stays in English".into());
         }
-        // Korean needs an installed Hangul font (none is bundled; see cjk.rs)
-        if id == "app.language.korean" && !crate::i18n::korean_font_available() {
+        if id == "app.language.korean" && !crate::i18n::font_available(crate::i18n::Language::Ko) {
             return Err("no Korean font is installed on this system (for example Malgun Gothic or Noto Sans CJK KR); the interface stays in English".into());
         }
         let language = match id {

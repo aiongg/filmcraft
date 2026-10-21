@@ -563,7 +563,7 @@ mod tests {
         let ctx = egui::Context::default();
         crate::theme::install(&ctx, &Tokens::for_kind(crate::theme::ThemeKind::default()));
         // Japanese needs a craft-fonts build or an installed font; without one there is nothing wide to measure
-        if !crate::i18n::install_japanese_font(&ctx) {
+        if !crate::i18n::font_available(crate::i18n::Language::Ja) {
             return;
         }
         let labels = ["Transcript", "Captions", "Graphics", "文字起こし", "キャプション", "グラフィックス"];

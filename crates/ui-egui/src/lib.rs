@@ -32,7 +32,6 @@ macro_rules! tlf {
 pub mod automation;
 pub mod brand;
 pub mod calc;
-mod cjk;
 pub mod control;
 pub mod crash;
 pub mod credits;
@@ -339,6 +338,8 @@ pub struct FilmcraftApp {
     input_waiters: Vec<(Sender<Value>, web_time::Instant)>,
     next_token: u64,
     styled: bool,
+    /// The language the installed font stack was built for.
+    fonts_language: i18n::Language,
     /// A panic in the UI pass, shown in an error window until dismissed (see [`crash`]).
     pub ui_error: Option<String>,
     /// The window runs in a fallback graphics mode (set by the desktop host): a notice with a
@@ -583,6 +584,7 @@ impl FilmcraftApp {
             input_waiters: Vec::new(),
             next_token: 1,
             styled: false,
+            fonts_language: i18n::Language::En,
             ui_error: None,
             panic_next_frame: false,
             quit_confirmed: false,
@@ -723,13 +725,13 @@ impl FilmcraftApp {
                 }
                 None => i18n::Language::default(),
             };
-            if language == i18n::Language::Ja && !i18n::install_japanese_font(ctx) {
+            if language == i18n::Language::Ja && !i18n::font_available(language) {
                 self.ui.language = i18n::Language::En;
                 self.ui.status = tl!("no Japanese font is installed on this system; the interface stays in English").into();
-            } else if language == i18n::Language::ZhCn && !i18n::chinese_font_available() {
+            } else if language == i18n::Language::ZhCn && !i18n::font_available(language) {
                 self.ui.language = i18n::Language::En;
                 self.ui.status = tl!("no Chinese font is installed on this system; the interface stays in English").into();
-            } else if language == i18n::Language::Ko && !i18n::korean_font_available() {
+            } else if language == i18n::Language::Ko && !i18n::font_available(language) {
                 self.ui.language = i18n::Language::En;
                 self.ui.status = tl!("no Korean font is installed on this system; the interface stays in English").into();
             } else {
@@ -2063,18 +2065,20 @@ impl eframe::App for FilmcraftApp {
         // a native file dialog's answer first, so the panels draw what it chose (#260)
         self.poll_native_dialog(ctx);
         if !self.styled {
-            theme::install(ctx, &self.tokens);
-            // theme::install replaces the fonts: add the system Japanese font back (or fall back to
-            // English when a saved Japanese setting meets a system without one)
-            // (likewise Chinese without a Chinese face, Korean without a Hangul one)
-            let japanese_missing = self.ui.language == i18n::Language::Ja && !i18n::install_japanese_font(ctx);
-            if japanese_missing
-                || (self.ui.language == i18n::Language::ZhCn && !i18n::chinese_font_available())
-                || (self.ui.language == i18n::Language::Ko && !i18n::korean_font_available())
-            {
+            // a saved Japanese, Chinese or Korean setting on a system without a face for it
+            // falls back to English
+            if !i18n::font_available(self.ui.language) {
                 self.ui.language = i18n::Language::En;
             }
+            i18n::set_current(self.ui.language);
+            theme::install(ctx, &self.tokens);
+            self.fonts_language = self.ui.language;
             self.styled = true;
+            ctx.request_repaint();
+        } else if self.fonts_language != self.ui.language {
+            // the UI language's own faces lead the font stack
+            theme::install_fonts(ctx, self.ui.language);
+            self.fonts_language = self.ui.language;
             ctx.request_repaint();
         } else {
             self.fonts_ready = true;
