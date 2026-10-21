@@ -1019,7 +1019,7 @@ source = "git+https://github.com/storytold/craft-libs?rev=82a24b006eefa036b43c09
 [[package]]
 name = "craft-media"
 version = "0.1.0"
-source = "git+https://github.com/aiongg/craft-libs?rev=a94e2380660320d621cd1971c5512329d0513184#a94e2380660320d621cd1971c5512329d0513184"
+source = "git+https://github.com/aiongg/craft-libs?rev=0ad895fbf13d25897b5b0dd66ef9cc0dd65b796b#0ad895fbf13d25897b5b0dd66ef9cc0dd65b796b"
 dependencies = [
  "thiserror 2.0.21",
 ]
@@ -1027,7 +1027,7 @@ dependencies = [
 [[package]]
 name = "craft-ui"
 version = "0.1.0"
-source = "git+https://github.com/aiongg/craft-libs?rev=a94e2380660320d621cd1971c5512329d0513184#a94e2380660320d621cd1971c5512329d0513184"
+source = "git+https://github.com/aiongg/craft-libs?rev=0ad895fbf13d25897b5b0dd66ef9cc0dd65b796b#0ad895fbf13d25897b5b0dd66ef9cc0dd65b796b"
 dependencies = [
  "egui",
  "serde",
