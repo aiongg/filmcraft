@@ -1290,14 +1290,13 @@ mod tests {
     }
 
     /// Every shipped translation and every language's menu name draws with the UI fonts alone, no
-    /// installed fonts. Japanese and Chinese need the craft-fonts faces, so they are checked in a
-    /// build with them (`CRAFT_FONTS_DIR`); craft-fonts has no Hangul face yet, so Korean still
-    /// needs an installed one and is left out.
+    /// installed fonts. Japanese, Chinese and Korean need the craft-fonts faces, so they are
+    /// checked in a build with them (`CRAFT_FONTS_DIR`).
     #[test]
     fn ui_fonts_cover_every_catalog() {
         use craft_ui::fonts::{Sample, SystemFonts, assert_covers};
         let craft = crate::theme::craft_faces();
-        let checked: Vec<Language> = Language::ALL.into_iter().filter(|l| *l != Language::Ko && (!craft.is_empty() || font_sample(*l).is_none())).collect();
+        let checked: Vec<Language> = Language::ALL.into_iter().filter(|l| !craft.is_empty() || font_sample(*l).is_none()).collect();
         let entries: Vec<(Language, String, String)> =
             checked.iter().flat_map(|l| catalog::parse_entries(l.source().unwrap_or_default()).0.into_iter().map(|(_, key, text)| (*l, key, text))).collect();
         let mut samples: Vec<Sample<'_>> = entries.iter().map(|(l, key, text)| Sample { language: l.code(), key, text }).collect();

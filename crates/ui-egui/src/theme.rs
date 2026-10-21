@@ -5,6 +5,7 @@
 
 use std::sync::OnceLock;
 
+use craft_fonts_build::EmbeddedFace;
 use craft_ui::direction;
 use craft_ui::fonts::{CraftFace, Family, I18nScripts, Stack, SystemFonts, UiFonts};
 use egui::{Color32, FontData, FontDefinitions, FontFamily, FontId, Stroke, TextStyle, Visuals};
@@ -416,15 +417,26 @@ pub fn font_families() -> Vec<FontFamily> {
     vec![FontFamily::Proportional, FontFamily::Monospace, FontFamily::Name("semibold".into()), FontFamily::Name("medium".into())]
 }
 
-/// The craft-fonts faces this build embedded ([`filmcraft_text::fonts::CRAFT_FONTS`]; empty unless
-/// built with `CRAFT_FONTS_DIR`).
+/// craft-fonts' CJK interface faces, cut at build time to the characters of FilmCraft's catalogs
+/// (see `build.rs`); empty unless built with `CRAFT_FONTS_DIR`.
+static UI_CJK_FACES: &[EmbeddedFace] = include!(concat!(env!("OUT_DIR"), "/ui_cjk_faces.rs"));
+
+/// The craft-fonts faces of the UI: the CJK interface cuts, and the other scripts' faces from the
+/// title fonts ([`filmcraft_text::fonts::CRAFT_FONTS`]). A craft-fonts checkout without interface
+/// faces gives no cuts; the UI then takes the title fonts' CJK faces. Empty unless built with
+/// `CRAFT_FONTS_DIR`.
 pub(crate) fn craft_faces() -> &'static [CraftFace] {
     static FACES: OnceLock<Vec<CraftFace>> = OnceLock::new();
     FACES.get_or_init(|| {
-        filmcraft_text::fonts::CRAFT_FONTS
-            .iter()
-            .map(|f| CraftFace { family: f.family, style: f.style, scripts: f.scripts, bytes: f.bytes, index: 0 })
-            .collect()
+        let cjk = |scripts: &[&str]| scripts.iter().any(|s| s.split('-').next().is_some_and(|base| craft_fonts_build::CJK_SCRIPTS.contains(&base)));
+        let titles = filmcraft_text::fonts::CRAFT_FONTS.iter().filter(|f| UI_CJK_FACES.is_empty() || !cjk(f.scripts)).map(|f| CraftFace {
+            family: f.family,
+            style: f.style,
+            scripts: f.scripts,
+            bytes: f.bytes,
+            index: 0,
+        });
+        UI_CJK_FACES.iter().copied().map(CraftFace::from).chain(titles).collect()
     })
 }
 

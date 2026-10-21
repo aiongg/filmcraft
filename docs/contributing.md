@@ -81,22 +81,31 @@ git clone https://github.com/storytold/craft-fonts ../craft-fonts
 CRAFT_FONTS_DIR="$PWD/../craft-fonts" cargo run --release -p filmcraft
 ```
 
-Use an absolute path: `build.rs` runs in `crates/text`, so a relative `CRAFT_FONTS_DIR` would
-resolve from there. `crates/text/build.rs` reads its `fonts/manifest.txt` and embeds the fonts as
-`filmcraft_text::fonts::CRAFT_FONTS` (native: all of them; the web build: only BIZ UDPGothic
-Regular, to keep the wasm small). `theme::font_stack` hands them to `craft_ui::fonts::UiFonts`,
-which builds every UI font family in the suite's order: Inter (JetBrains Mono for monospace), the
-craft-fonts faces for the interface language, those for every other shipped language (so Japanese
-and Chinese names draw in an English interface, with Japanese glyph forms first), installed fonts
-through egui's system font provider, then egui's own faces. The text engine also uses them as
-fallback faces (Gothic for sans text, Mincho for serif text). Without `CRAFT_FONTS_DIR`,
-`CRAFT_FONTS` is empty and FilmCraft uses its bundled and installed fonts. A `CRAFT_FONTS_DIR` that
-is not a checkout is a build warning, or an error with `CRAFT_FONTS_REQUIRED=1` (release builds set
-both). Tests on these fonts' glyphs skip when it is empty; when you touch fonts, run the gates both
-with and without it. `i18n::tests::ui_fonts_cover_every_catalog` checks that every shipped
-translation draws without installed fonts (`craft_ui::fonts::assert_covers`); Korean is left out
-until craft-fonts has a Hangul face. Switching to Japanese, Chinese or Korean is refused when no
-face covers it (`i18n::font_available`).
+Use an absolute path: build scripts run in their crate's directory, so a relative `CRAFT_FONTS_DIR`
+would resolve from there. Two build scripts read its `fonts/manifest.txt`:
+
+- `crates/text/build.rs` embeds the fonts for titles and captions as
+  `filmcraft_text::fonts::CRAFT_FONTS` (native: every face except the interface sources in
+  `fonts/ui/`; the web build: only BIZ UDPGothic Regular, to keep the wasm small). The text engine
+  uses them as fallback faces (Gothic for sans text, Mincho for serif text).
+- `crates/ui-egui/build.rs` embeds the CJK interface faces (BIZ UDPGothic Regular, Noto Sans
+  SC/TC/HK/KR UI) cut to the characters of the catalogs in `crates/ui-egui/src/i18n/`, about 3 MB
+  together (`craft_fonts_build::Embed::subset_to`; the web build takes only the Japanese one).
+  Adding a translation changes the cuts at the next build.
+
+`theme::craft_faces` hands the interface cuts and the other scripts' title faces to
+`craft_ui::fonts::UiFonts`, which builds every UI font family in the suite's order: Inter (JetBrains
+Mono for monospace), the craft-fonts faces for the interface language, those for every other
+shipped language (so Japanese and Chinese names draw in an English interface, with Japanese glyph
+forms first), installed fonts through egui's system font provider, then egui's own faces. A
+character the cuts lack, such as a rare kanji in a file name, comes from an installed font. Without
+`CRAFT_FONTS_DIR` both tables are empty and FilmCraft uses its bundled and installed fonts. A
+`CRAFT_FONTS_DIR` that is not a checkout is a build warning, or an error with
+`CRAFT_FONTS_REQUIRED=1` (release builds set both). Tests on these fonts' glyphs skip when it is
+empty; when you touch fonts, run the gates both with and without it.
+`i18n::tests::ui_fonts_cover_every_catalog` checks that every shipped translation draws without
+installed fonts (`craft_ui::fonts::assert_covers`). Switching to Japanese, Chinese or Korean is
+refused when no face covers it (`i18n::font_available`).
 
 Arabic text uses the `Arab` craft-fonts face, Hebrew an installed one. The suite's patched egui
 (`[patch.crates-io]` in `Cargo.toml`) runs the Unicode Bidirectional Algorithm in every label and

@@ -7,6 +7,11 @@
 //!   JSON says the entry was verified (`people_entry`).
 //!
 //! A missing or malformed file gives empty tables (or no names) and a warning.
+//!
+//! It also embeds the CJK interface faces of craft-fonts (`CRAFT_FONTS_DIR`), cut to the characters
+//! of the translation catalogs in `src/i18n/`, as `theme::UI_CJK_FACES`. The web build takes only
+//! the Japanese one, for its size budget. Every other craft-fonts face the UI uses comes from
+//! `filmcraft_text::fonts::CRAFT_FONTS`, which titles share.
 
 use std::fmt::Write as _;
 
@@ -21,6 +26,21 @@ fn main() {
     let out = std::path::PathBuf::from(std::env::var_os("OUT_DIR").unwrap_or_default()).join("credits.rs");
     if let Err(e) = std::fs::write(&out, generate(&json, &people)) {
         println!("cargo::warning=writing {}: {e}", out.display());
+    }
+    ui_cjk_faces();
+}
+
+fn ui_cjk_faces() {
+    let catalogs = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/i18n");
+    println!("cargo::rerun-if-changed={}", catalogs.display());
+    let mut paths: Vec<std::path::PathBuf> =
+        std::fs::read_dir(&catalogs).into_iter().flatten().flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "tsv")).collect();
+    paths.sort();
+    let wasm = craft_fonts_build::target_is_wasm();
+    let written =
+        craft_fonts_build::Embed::new().subset_to(paths).filter(move |face| face.is_ui() && (!wasm || face.has_script("Jpan"))).write("ui_cjk_faces.rs");
+    if let Err(e) = written {
+        println!("cargo::error={e}");
     }
 }
 

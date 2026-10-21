@@ -7,8 +7,10 @@
 //! empty and nothing else changes. A `CRAFT_FONTS_DIR` that is not a checkout is a warning, or an
 //! error with `CRAFT_FONTS_REQUIRED=1` (release builds).
 //!
-//! Native builds embed every font. The web (wasm32) build embeds only the UI font (BIZ UDPGothic
-//! Regular, ~4.5 MB) to stay under the web size budget (Cloudflare serves files up to 25 MiB).
+//! Native builds embed every font except the interface sources in `fonts/ui/`, which
+//! `filmcraft-ui-egui` cuts to its catalogs' characters. The web (wasm32) build embeds only BIZ
+//! UDPGothic Regular (~4.5 MB) to stay under the web size budget (Cloudflare serves files up to
+//! 25 MiB).
 //! Only the local directory is read: no network.
 
 use std::fmt::Write as _;
@@ -47,7 +49,7 @@ fn craft_fonts(dir: &std::path::Path) -> Result<String, String> {
         let [family, style, file, scripts, ..] = f.as_slice() else {
             return Err(format!("malformed manifest line: {line}"));
         };
-        if wasm && !(*family == "BIZ UDPGothic" && *style == "Regular") {
+        if file.starts_with("fonts/ui/") || (wasm && !(*family == "BIZ UDPGothic" && *style == "Regular")) {
             continue;
         }
         let path = dir.join(file).canonicalize().map_err(|e| format!("{file}: {e}"))?;

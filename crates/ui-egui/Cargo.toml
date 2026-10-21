@@ -10,6 +10,7 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
+craft-fonts-build = { workspace = true }
 craft-i18n = { workspace = true }
 craft-ui = { workspace = true }
 filmcraft-time = { workspace = true }
@@ -55,7 +56,9 @@ filmcraft-platform = { workspace = true }
 filmcraft-interchange = { workspace = true }
 egui_kittest = { workspace = true, features = ["eframe", "wgpu"] }
 
-# build.rs bakes contributors/contributors.json into the binary (About ▸ Contributors).
+# build.rs bakes contributors/contributors.json into the binary (About ▸ Contributors) and embeds
+# the CJK interface faces cut to the catalogs' characters.
 [build-dependencies]
+craft-fonts-build = { workspace = true, features = ["subset"] }
 serde_json = { workspace = true }
 toml = "1"
