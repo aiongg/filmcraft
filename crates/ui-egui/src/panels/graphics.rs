@@ -160,6 +160,23 @@ fn next_boundary(s: &str, i: usize) -> usize {
     s[i..].chars().next().map_or(i, |c| i + c.len_utf8())
 }
 
+/// An input method's delete of `before` chars ending at the selection and `after` chars starting
+/// after it. The selection stays, for the commit that follows to replace.
+fn delete_surrounding(text: &mut String, ed: &mut GfxEdit, before: usize, after: usize) -> bool {
+    let (a, b) = (ed.caret.min(ed.anchor), ed.caret.max(ed.anchor));
+    let (Some(head), Some(tail)) = (text.get(..a), text.get(b..)) else { return false };
+    let start = a - head.chars().rev().take(before).map(char::len_utf8).sum::<usize>();
+    let end = b + tail.chars().take(after).map(char::len_utf8).sum::<usize>();
+    if (start, end) == (a, b) {
+        return false;
+    }
+    text.replace_range(b..end, "");
+    text.replace_range(start..a, "");
+    ed.caret -= a - start;
+    ed.anchor -= a - start;
+    true
+}
+
 #[derive(Clone, Copy, Debug)]
 enum DragKind {
     Move,
@@ -1067,6 +1084,18 @@ fn text_edit(app: &mut FilmcraftApp, ui: &mut egui::Ui, v: &LayerView, mut ed: G
                 ed.caret += s.len();
                 ed.anchor = ed.caret;
                 changed = true;
+            }
+            // Sent right before the commit it goes with (macOS press-and-hold accents replace the
+            // letter typed before them), so both land in this frame's one setText.
+            egui::Event::Ime(egui::ImeEvent::DeleteSurroundingBytes { before_bytes, after_bytes }) => {
+                let (a, b) = sel(&ed);
+                if let (Some(before), Some(after)) = (text.get(..a), text.get(b..)) {
+                    let (before_chars, after_chars) = craft_ui::ime::surrounding_chars(before, after, before_bytes, after_bytes);
+                    changed |= delete_surrounding(&mut text, &mut ed, before_chars, after_chars);
+                }
+            }
+            egui::Event::Ime(egui::ImeEvent::DeleteSurrounding { before_chars, after_chars }) => {
+                changed |= delete_surrounding(&mut text, &mut ed, before_chars, after_chars);
             }
             egui::Event::Copy | egui::Event::Cut => {
                 let (a, b) = sel(&ed);

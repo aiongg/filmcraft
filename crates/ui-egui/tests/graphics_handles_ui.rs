@@ -357,6 +357,25 @@ fn text_committed_by_an_input_method_is_typed_on_the_monitor() {
     assert_eq!(list["layers"][0]["text"], "A你好");
 }
 
+/// macOS press-and-hold accents: the input method deletes the letter before the caret (counted in
+/// UTF-8 bytes) and commits the accented one. Without the delete the text reads "Aéê".
+#[test]
+fn an_input_method_replaces_the_letter_before_the_caret() {
+    let mut d = Driver::new();
+    d.ok("ui.set", json!({"tool": "Type"}));
+    d.frames(3);
+    let pic = d.rect("program.picture");
+    d.ok("ui.click", json!({"x": pic[0] + pic[2] * 0.3, "y": pic[1] + pic[3] * 0.2}));
+    d.ok("ui.type", json!({"text": "Aé"}));
+    d.harness.input_mut().events.extend([
+        egui::Event::Ime(egui::ImeEvent::DeleteSurroundingBytes { before_bytes: 'é'.len_utf8(), after_bytes: 0 }),
+        egui::Event::Ime(egui::ImeEvent::Commit("ê".into())),
+    ]);
+    d.frames(4);
+    let list = d.exec("graphics.list", json!({}));
+    assert_eq!(list["layers"][0]["text"], "Aê");
+}
+
 /// #2430: a click (no drag) in the text being edited on the monitor puts the caret there; before,
 /// only a press that moved a little did, and typing went on at the end.
 #[test]
