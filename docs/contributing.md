@@ -116,7 +116,7 @@ Every commit must pass all of these:
 |---|---|
 | Format | `cargo fmt --check` (`rustfmt.toml`: `max_width = 160`) |
 | Lints | `cargo clippy --workspace --all-targets -- -D warnings` |
-| Tests | `cargo test --workspace` |
+| Tests | `cargo nextest run --workspace` ([cargo-nextest](https://nexte.st), or `cargo test --workspace`), then `cargo test --workspace --doc` |
 | Layering | `cargo xtask layers` |
 | Assets | `cargo xtask assets` |
 | wasm | `cargo xtask wasm` (checks every L0–L4 crate, `filmcraft-ui-egui` and `filmcraft-web` for `wasm32-unknown-unknown`) |

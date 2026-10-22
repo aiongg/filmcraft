@@ -2,6 +2,7 @@
 
 ```sh
 cargo test --workspace                          # everything; oracle tests skip without ffmpeg
+cargo nextest run --workspace                   # the same in parallel processes (doctests: cargo test --doc)
 cargo test -p filmcraft-h264                    # one crate
 cargo test --release -p filmcraft-hevc          # codec tests are much faster in release
 cargo xtask ci                                  # all gates (fmt, clippy, tests, layers, assets, wasm)

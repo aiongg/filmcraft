@@ -16,7 +16,8 @@
 //!   lists, against a reference list (default: the local `plan/premiere/<area>.json`), presence and
 //!   placement reported separately (`parity.rs`, docs/gaps.md G7).
 //! - `ico <out.ico> <in.png>…`: pack PNGs into a Windows `.ico` (used by `packaging/icons.sh`).
-//! - `ci`: fmt check, clippy -D warnings, tests, layers, assets, wasm.
+//! - `ci`: fmt check, clippy -D warnings, tests (`cargo nextest run` when installed) and doctests,
+//!   layers, assets, wasm.
 
 mod ico;
 mod parity;
@@ -259,7 +260,7 @@ const WEB_CRATES: &[&str] = &["filmcraft-ui-egui", "filmcraft-web"];
 fn wasm() -> Result<(), String> {
     let md = metadata()?;
     let mut cmd = Command::new(env!("CARGO"));
-    cmd.args(["check", "--target", "wasm32-unknown-unknown"]);
+    cmd.args(["check", "--target", "wasm32-unknown-unknown", "--keep-going"]);
     let mut n = 0;
     for (name, _) in workspace_crates(&md) {
         if layer_of(&name).is_some_and(|l| l <= 4) || WEB_CRATES.contains(&name.as_str()) {
@@ -457,10 +458,25 @@ fn ci() -> Result<(), String> {
     let cargo = env!("CARGO");
     run(Command::new(cargo).args(["fmt", "--check"]))?;
     run(Command::new(cargo).args(["clippy", "--workspace", "--all-targets", "--", "-D", "warnings"]))?;
-    run(Command::new(cargo).args(["test", "--workspace"]))?;
+    tests()?;
     layers()?;
     assets()?;
     wasm()
+}
+
+/// Lib, bin and integration tests (examples aren't linked; clippy checked them), then doctests,
+/// which nextest doesn't run.
+fn tests() -> Result<(), String> {
+    let cargo = env!("CARGO");
+    let targets = ["--workspace", "--lib", "--bins", "--tests", "--no-fail-fast"];
+    let nextest = Command::new(cargo).args(["nextest", "--version"]).output().is_ok_and(|o| o.status.success());
+    if nextest {
+        run(Command::new(cargo).args(["nextest", "run"]).args(targets))?;
+    } else {
+        println!("cargo-nextest not found, running cargo test (install: cargo install cargo-nextest --locked)");
+        run(Command::new(cargo).arg("test").args(targets))?;
+    }
+    run(Command::new(cargo).args(["test", "--workspace", "--doc"]))
 }
 
 /// The headless playback benchmark (`crates/ui-egui/examples/bench_playback.rs`); extra
