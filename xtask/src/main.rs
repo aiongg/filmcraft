@@ -400,26 +400,26 @@ fn serve_dir(dir: &std::path::Path, port: u16) -> Result<(), String> {
     Ok(())
 }
 
-/// (crate, test target) whose ignored `generate_fixtures` test builds that crate's fixture matrix.
-const FIXTURE_GENERATORS: &[(&str, &str)] = &[
-    ("h264", "conformance"),
-    ("hevc", "conformance"),
-    ("isobmff", "oracle_demux"),
-    ("matroska", "oracle"),
-    ("prores", "oracle_decode"),
-    ("dnx", "oracle_decode"),
-    ("codecs", "mxf_oracle"),
-    ("codecs", "mpeg_oracle"),
-    ("mpeg2v", "oracle"),
-    ("ac3", "oracle"),
-    ("mpa", "oracle"),
-    ("codecs", "ogg_oracle"),
+/// (crate, test target, test) whose ignored test builds that crate's fixture matrix.
+const FIXTURE_GENERATORS: &[(&str, &str, &str)] = &[
+    ("h264", "it", "conformance::generate_fixtures"),
+    ("hevc", "it", "conformance::generate_fixtures"),
+    ("isobmff", "it", "oracle_demux::generate_fixtures"),
+    ("matroska", "oracle", "generate_fixtures"),
+    ("prores", "it", "oracle_decode::generate_fixtures"),
+    ("dnx", "it", "oracle_decode::generate_fixtures"),
+    ("codecs", "it", "mxf_oracle::generate_fixtures"),
+    ("codecs", "it", "mpeg_oracle::generate_fixtures"),
+    ("mpeg2v", "it", "oracle::generate_fixtures"),
+    ("ac3", "oracle", "generate_fixtures"),
+    ("mpa", "oracle", "generate_fixtures"),
+    ("codecs", "it", "ogg_oracle::generate_fixtures"),
 ];
 
 fn fixtures(only: &[String]) -> Result<(), String> {
-    let unknown: Vec<&String> = only.iter().filter(|o| !FIXTURE_GENERATORS.iter().any(|(c, _)| *c == short(o))).collect();
+    let unknown: Vec<&String> = only.iter().filter(|o| !FIXTURE_GENERATORS.iter().any(|(c, _, _)| *c == short(o))).collect();
     if !unknown.is_empty() {
-        let known: Vec<&str> = FIXTURE_GENERATORS.iter().map(|(c, _)| *c).collect();
+        let known: Vec<&str> = FIXTURE_GENERATORS.iter().map(|(c, _, _)| *c).collect();
         return Err(format!("no fixture generator for {unknown:?} (known: {})", known.join(", ")));
     }
     let Some(ff) = filmcraft_testkit::ffmpeg() else {
@@ -429,11 +429,11 @@ fn fixtures(only: &[String]) -> Result<(), String> {
     println!("fixtures: {}", filmcraft_testkit::fixtures::fixtures_root().display());
     let (mut made, mut cached, mut skipped) = (0, 0, 0);
     let mut failed = Vec::new();
-    for (krate, target) in FIXTURE_GENERATORS.iter().filter(|(c, _)| only.is_empty() || only.iter().any(|o| short(o) == *c)) {
+    for (krate, target, test) in FIXTURE_GENERATORS.iter().filter(|(c, _, _)| only.is_empty() || only.iter().any(|o| short(o) == *c)) {
         let pkg = format!("filmcraft-{krate}");
-        println!("\n== {pkg} ({target})");
+        println!("\n== {pkg} ({test})");
         let mut cmd = Command::new(env!("CARGO"));
-        cmd.args(["test", "--release", "-p", &pkg, "--test", target, "--", "--ignored", "--exact", "generate_fixtures", "--nocapture"]);
+        cmd.args(["test", "--release", "-p", &pkg, "--test", target, "--", "--ignored", "--exact", test, "--nocapture"]);
         cmd.stderr(std::process::Stdio::inherit());
         let out = cmd.output().map_err(|e| e.to_string())?;
         for line in String::from_utf8_lossy(&out.stdout).lines() {
