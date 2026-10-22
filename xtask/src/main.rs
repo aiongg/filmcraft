@@ -456,8 +456,8 @@ fn fixtures(only: &[String]) -> Result<(), String> {
 fn ci() -> Result<(), String> {
     let cargo = env!("CARGO");
     run(Command::new(cargo).args(["fmt", "--check"]))?;
-    run(Command::new(cargo).args(["clippy", "--workspace", "--all-targets", "--release", "--", "-D", "warnings"]))?;
-    run(Command::new(cargo).args(["test", "--workspace", "--release"]))?;
+    run(Command::new(cargo).args(["clippy", "--workspace", "--all-targets", "--", "-D", "warnings"]))?;
+    run(Command::new(cargo).args(["test", "--workspace"]))?;
     layers()?;
     assets()?;
     wasm()

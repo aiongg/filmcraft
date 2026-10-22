@@ -108,15 +108,16 @@ pub fn run(cmd: &mut Command) -> bool {
 /// Generate (if needed) the fixture stream and its reference decode by libvpx through ffmpeg.
 /// `None` (the test skips) without ffmpeg or its libvpx encoder.
 pub fn ensure(f: &Fixture) -> Option<(PathBuf, PathBuf)> {
-    // one generation at a time: tests share fixtures, and realtime libvpx encodes differ from run
-    // to run, so a stream and its reference decode must come from the same encode
-    static GENERATING: std::sync::Mutex<()> = std::sync::Mutex::new(());
-    let _guard = GENERATING.lock().unwrap_or_else(|e| e.into_inner());
     let Some(ff) = ffmpeg() else {
         eprintln!("SKIP {}: ffmpeg not found", f.name);
         return None;
     };
     let dir = fixtures_dir();
+    // one generation at a time, across test processes too: tests share fixtures, and realtime
+    // libvpx encodes differ from run to run, so a stream and its reference decode must come from
+    // the same encode
+    let lock = std::fs::File::create(dir.join("vp8.generate.lock")).ok()?;
+    lock.lock().ok()?;
     let ivf = dir.join(format!("{}.ivf", f.name));
     let yuv = dir.join(format!("{}.yuv", f.name));
     if !ivf.exists() {
