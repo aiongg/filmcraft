@@ -236,8 +236,13 @@ fn encode(name: &str, w: u32, h: u32, frames: u32, extra: &[&str]) -> Option<Vec
         c.arg(format!("testsrc2=size={w}x{h}:rate=25,noise=alls=8:allf=t+u"));
         c.args(["-frames:v", &frames.to_string(), "-c:v", "libvpx-vp9", "-b:v", "500k", "-frame-parallel", "0"]);
         c.args(extra);
-        c.args(["-f", "ivf"]).arg(&path);
+        // written aside and renamed: a test in another process may be reading this fixture
+        let tmp = path.with_extension(format!("tmp.{}.ivf", common::unique()));
+        c.args(["-f", "ivf"]).arg(&tmp);
         if !common::run(&mut c) {
+            return None;
+        }
+        if std::fs::rename(&tmp, &path).is_err() && !path.exists() {
             return None;
         }
     }
