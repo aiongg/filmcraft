@@ -1766,6 +1766,7 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror 2.0.21",
  "tokio",
 ]
@@ -1916,6 +1917,7 @@ dependencies = [
 name = "filmcraft-engine"
 version = "0.12.0"
 dependencies = [
+ "chrono",
  "craft-docpath",
  "filmcraft-audio-dsp",
  "filmcraft-captions",
@@ -1991,6 +1993,7 @@ dependencies = [
 name = "filmcraft-format"
 version = "0.12.0"
 dependencies = [
+ "chrono",
  "filmcraft-media",
  "filmcraft-project",
  "filmcraft-time",
@@ -2167,6 +2170,7 @@ dependencies = [
 name = "filmcraft-mxf"
 version = "0.12.0"
 dependencies = [
+ "chrono",
  "filmcraft-testkit",
 ]
 
@@ -2285,6 +2289,7 @@ dependencies = [
 name = "filmcraft-testkit"
 version = "0.12.0"
 dependencies = [
+ "chrono",
  "png",
 ]
 
@@ -2295,6 +2300,7 @@ dependencies = [
  "filmcraft-color",
  "harfrust",
  "skrifa",
+ "tempfile",
  "unicode-bidi",
  "unicode-linebreak",
  "unicode-segmentation",
@@ -2364,6 +2370,7 @@ dependencies = [
  "rustix 1.1.5",
  "serde",
  "serde_json",
+ "tempfile",
  "toml 1.1.6+spec-1.1.0",
  "unicode-bidi",
  "web-time",
