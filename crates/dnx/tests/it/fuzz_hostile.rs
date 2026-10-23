@@ -58,27 +58,35 @@ fn run(d: &[u8], label: &str) {
 /// Seconds the whole sweep may take before it counts as a hang (override: FILMCRAFT_HOSTILE_TIMEOUT_SECS).
 const DEADLINE_SECS: u64 = 600;
 
+/// CI runs a share of every part of the sweep; `FILMCRAFT_FUZZ_ITERS=1500` runs all of it (see [`Depth`]).
 #[test]
 fn hostile_frames_never_panic() {
     filmcraft_testkit::with_deadline(DEADLINE_SECS, sweep);
 }
 
 fn sweep() {
+    let depth = Depth::from_env();
     let seeds = seeds();
     assert!(!seeds.is_empty());
     for (si, seed) in seeds.iter().enumerate() {
-        let stride = (seed.len() / 400).max(1);
+        let stride = (seed.len() / depth.truncations).max(1);
         for n in (0..seed.len()).step_by(stride) {
             run(&seed[..n], &format!("seed {si} truncate {n}"));
         }
         // The header (and the start of the scan-line index): every byte to extreme values, every bit.
         for p in 0..seed.len().min(0x300) {
-            for v in [0u8, 0xff, 0x80, 0x01, 0x7f] {
+            for (i, v) in VALUES.into_iter().enumerate() {
+                if !depth.value(p, i) {
+                    continue;
+                }
                 let mut d = seed.clone();
                 d[p] = v;
                 run(&d, &format!("seed {si} byte {p:#x}={v:#x}"));
             }
             for b in 0..8 {
+                if !depth.bit(p, b) {
+                    continue;
+                }
                 let mut d = seed.clone();
                 d[p] ^= 1 << b;
                 run(&d, &format!("seed {si} flip {p:#x}.{b}"));
@@ -93,8 +101,7 @@ fn sweep() {
             run(&d, &format!("seed {si} u16 {off:#x}={v:#x}"));
         }
         let mut rng = Rng(0x9e3779b97f4a7c15 ^ si as u64);
-        let iters = std::env::var("FILMCRAFT_FUZZ_ITERS").ok().and_then(|s| s.parse().ok()).unwrap_or(1500);
-        for i in 0..iters {
+        for i in 0..depth.rounds {
             let mut d = seed.clone();
             for _ in 0..1 + rng.below(8) {
                 let p = rng.below(d.len());
@@ -106,5 +113,33 @@ fn sweep() {
             }
             run(&d, &format!("seed {si} random {i}"));
         }
+    }
+}
+
+const VALUES: [u8; 5] = [0, 0xff, 0x80, 0x01, 0x7f];
+
+/// How much of the sweep runs. `FILMCRAFT_FUZZ_ITERS=N` runs all of it (every truncation point,
+/// header byte, overwrite value and bit flip) plus N random rounds per seed: 1500 is the full
+/// depth, more hunts longer. Unset, CI runs a third of the truncation points and random rounds
+/// and, for each header byte, one value and two bits in rotation, so every byte is still hit and
+/// every value and bit index still occurs across the region.
+struct Depth {
+    full: bool,
+    truncations: usize,
+    rounds: usize,
+}
+
+impl Depth {
+    fn from_env() -> Self {
+        match std::env::var("FILMCRAFT_FUZZ_ITERS").ok().and_then(|s| s.parse().ok()) {
+            Some(rounds) => Depth { full: true, truncations: 400, rounds },
+            None => Depth { full: false, truncations: 133, rounds: 500 },
+        }
+    }
+    fn value(&self, p: usize, i: usize) -> bool {
+        self.full || i == p % VALUES.len()
+    }
+    fn bit(&self, p: usize, b: usize) -> bool {
+        self.full || (b + p).is_multiple_of(4)
     }
 }

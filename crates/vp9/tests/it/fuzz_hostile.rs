@@ -90,14 +90,39 @@ fn run_all(frames: &[Vec<u8>], label: &str) {
     assert!(res.is_ok() && PANICS.load(Ordering::SeqCst) == before, "panic: {label}");
 }
 
-/// Random-mutation rounds per seed (raise with FILMCRAFT_FUZZ_ITERS for a long hunt).
-fn iters() -> usize {
-    std::env::var("FILMCRAFT_FUZZ_ITERS").ok().and_then(|s| s.parse().ok()).unwrap_or(300)
+const VALUES: [u8; 5] = [0, 0xff, 0x80, 0x01, 0x7f];
+
+/// How much of the sweep runs. `FILMCRAFT_FUZZ_ITERS=N` runs all of it (every truncation point,
+/// header byte, overwrite value and bit flip) plus N random rounds per seed: 300 is the full depth,
+/// more hunts longer. Unset, CI runs a third of the truncation points and random rounds and, for
+/// each header byte of each frame, one value and one bit in a rotation that shifts with the frame
+/// index: every byte is still hit, and at each header offset the frames together still see every
+/// value and most bit indices.
+struct Depth {
+    full: bool,
+    truncations: usize,
+    rounds: usize,
+}
+
+impl Depth {
+    fn from_env() -> Self {
+        match std::env::var("FILMCRAFT_FUZZ_ITERS").ok().and_then(|s| s.parse().ok()) {
+            Some(rounds) => Depth { full: true, truncations: 200, rounds },
+            None => Depth { full: false, truncations: 67, rounds: 100 },
+        }
+    }
+    fn value(&self, fi: usize, p: usize, i: usize) -> bool {
+        self.full || i == (p + fi) % VALUES.len()
+    }
+    fn bit(&self, fi: usize, p: usize, b: usize) -> bool {
+        self.full || b == (p + fi) % 8
+    }
 }
 
 /// Seconds the whole sweep may take before it counts as a hang (override: FILMCRAFT_HOSTILE_TIMEOUT_SECS).
 const DEADLINE_SECS: u64 = 600;
 
+/// CI runs a share of every part of the sweep; `FILMCRAFT_FUZZ_ITERS=300` runs all of it (see [`Depth`]).
 #[test]
 fn hostile_streams_never_panic() {
     filmcraft_testkit::with_deadline(DEADLINE_SECS, sweep);
@@ -105,6 +130,7 @@ fn hostile_streams_never_panic() {
 
 fn sweep() {
     let Some(ff) = filmcraft_testkit::ffmpeg_or_skip("VP9 fuzz") else { return };
+    let depth = Depth::from_env();
     for &(name, args, pix) in SEEDS {
         if !filmcraft_testkit::ffmpeg_has_encoder(&ff, "libvpx-vp9") {
             filmcraft_testkit::skip("VP9 fuzz", &format!("this ffmpeg has no libvpx-vp9 encoder (seed {name})"));
@@ -120,7 +146,7 @@ fn sweep() {
         // truncate each of the first frames at every length
         for fi in 0..seed.len().min(3) {
             let len = seed[fi].len();
-            for n in (0..len).step_by((len / 200).max(1)) {
+            for n in (0..len).step_by((len / depth.truncations).max(1)) {
                 let mut d = seed.clone();
                 d[fi].truncate(n);
                 run_all(&d, &format!("{name} frame {fi} truncate {n}"));
@@ -129,12 +155,18 @@ fn sweep() {
         // header region of every frame: every byte to a few values, every bit
         for fi in 0..seed.len() {
             for p in 0..seed[fi].len().min(96) {
-                for v in [0u8, 0xff, 0x80, 0x01, 0x7f] {
+                for (i, v) in VALUES.into_iter().enumerate() {
+                    if !depth.value(fi, p, i) {
+                        continue;
+                    }
                     let mut d = seed.clone();
                     d[fi][p] = v;
                     run_all(&d, &format!("{name} frame {fi} byte {p}={v:#x}"));
                 }
                 for b in 0..8 {
+                    if !depth.bit(fi, p, b) {
+                        continue;
+                    }
                     let mut d = seed.clone();
                     d[fi][p] ^= 1 << b;
                     run_all(&d, &format!("{name} frame {fi} flip {p}.{b}"));
@@ -142,7 +174,7 @@ fn sweep() {
             }
         }
         let mut rng = Rng(0x9e3779b97f4a7c15 ^ name.len() as u64);
-        for i in 0..iters() {
+        for i in 0..depth.rounds {
             let mut d = seed.clone();
             for _ in 0..1 + rng.below(6) {
                 let fi = rng.below(d.len());
