@@ -28,9 +28,3 @@ jobs:
         pkg-config libxkbcommon-dev libwayland-dev libx11-dev libxcb1-dev libxcursor-dev
         libxrandr-dev libxi-dev libfontconfig1-dev libfreetype-dev mesa-vulkan-drivers
         libasound2-dev
-      # `xtask ci` builds clippy and the tests with --release. The release profile (thin LTO, one
-      # codegen unit) is for shipped binaries: on a 4-core runner it makes linking the ~220 test
-      # binaries take over an hour. CI keeps the optimisation level but builds in parallel units.
-      env: |
-        CARGO_PROFILE_RELEASE_LTO=false
-        CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16

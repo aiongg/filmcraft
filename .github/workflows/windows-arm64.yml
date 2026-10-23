@@ -4,11 +4,12 @@
 # out for now: PdfCraft saw an intermittent access violation in egui UI tests there.)
 name: Windows ARM64
 
-# Nightly on main and on pushes to `release` (dependency and runner-image drift shows up within a
-# day, and always before a release ships), and on PRs that change the Windows packaging itself.
+# The package build takes about 15 minutes, so it runs nightly on main and on pushes to `release`
+# rather than on every push to main: a dependency or runner-image change still shows up within a
+# day. PRs that change the Windows packaging itself still run it.
 on:
   schedule:
-    - cron: "3 5 * * *"
+    - cron: "41 4 * * *"
   push:
     branches: [release]
   pull_request:
