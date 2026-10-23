@@ -32,12 +32,15 @@ fn spectra(x: &[f32], channels: usize, ch: usize, rate: u32) -> Vec<[f64; NFREQ]
     let w: Vec<f64> = (0..win).map(|i| 0.5 - 0.5 * (2.0 * std::f64::consts::PI * (i as f64 + 0.5) / win as f64).cos()).collect();
     let nb = NFREQ / scale;
     let mut out = Vec::with_capacity(nframes);
+    let tw = twiddles(win);
     let mut buf = vec![(0f64, 0f64); win];
+    let mut spec = vec![(0f64, 0f64); win];
+    let mut scratch = vec![(0f64, 0f64); win];
     for f in 0..nframes {
         for i in 0..win {
             buf[i] = (x[(f * step + i) * channels + ch] as f64 * w[i], 0.0);
         }
-        let spec = fft(&buf);
+        fft(&buf, 1, &mut spec, &tw, &mut scratch);
         let mut ps = [0f64; NFREQ];
         for (k, p) in ps.iter_mut().enumerate().take(nb) {
             *p = spec[k].0 * spec[k].0 + spec[k].1 * spec[k].1;
@@ -47,28 +50,49 @@ fn spectra(x: &[f32], channels: usize, ch: usize, rate: u32) -> Vec<[f64; NFREQ]
     out
 }
 
-/// Recursive mixed-radix DFT (sizes with factors 2, 3, 5).
-fn fft(x: &[(f64, f64)]) -> Vec<(f64, f64)> {
-    let n = x.len();
+/// `e^(-2πi·j/n)` for `j` in `0..n`: the twiddle factors of every sub-transform of a size-`n` FFT.
+fn twiddles(n: usize) -> Vec<(f64, f64)> {
+    (0..n)
+        .map(|j| {
+            let ang = -2.0 * std::f64::consts::PI * j as f64 / n as f64;
+            (ang.cos(), ang.sin())
+        })
+        .collect()
+}
+
+/// Recursive mixed-radix DFT (sizes with factors 2, 3, 5) of `x[0], x[xs], x[2·xs], …` into
+/// `out`. `tw` is `twiddles` of the top-level size, which `out.len()` divides; `scratch` holds at
+/// least `out.len()` values.
+fn fft(x: &[(f64, f64)], xs: usize, out: &mut [(f64, f64)], tw: &[(f64, f64)], scratch: &mut [(f64, f64)]) {
+    let n = out.len();
     if n == 1 {
-        return x.to_vec();
+        out[0] = x[0];
+        return;
     }
     let p = [2usize, 3, 5].into_iter().find(|p| n.is_multiple_of(*p)).unwrap_or(n);
     let m = n / p;
-    let subs: Vec<Vec<(f64, f64)>> = (0..p).map(|r| fft(&x.iter().skip(r).step_by(p).copied().collect::<Vec<_>>())).collect();
-    let mut out = vec![(0f64, 0f64); n];
-    for (k, o) in out.iter_mut().enumerate() {
+    let stride = tw.len() / n;
+    for r in 0..p {
+        fft(&x[r * xs..], xs * p, &mut out[r * m..(r + 1) * m], tw, scratch);
+    }
+    for (k, o) in scratch[..n].iter_mut().enumerate() {
+        let j = k % m;
         let mut acc = (0f64, 0f64);
-        for (r, sub) in subs.iter().enumerate() {
-            let v = sub[k % m];
-            let ang = -2.0 * std::f64::consts::PI * (r * k) as f64 / n as f64;
-            let (c, s) = (ang.cos(), ang.sin());
+        // e = r·k mod n, kept below n without a division per term.
+        let mut e = 0;
+        for r in 0..p {
+            let v = out[r * m + j];
+            let (c, s) = tw[e * stride];
             acc.0 += v.0 * c - v.1 * s;
             acc.1 += v.0 * s + v.1 * c;
+            e += k;
+            if e >= n {
+                e -= n;
+            }
         }
         *o = acc;
     }
-    out
+    out.copy_from_slice(&scratch[..n]);
 }
 
 /// Opus quality metric in the spirit of `opus_compare` (RFC 6716 §6.1): a per-band,
