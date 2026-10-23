@@ -46,11 +46,11 @@ jobs:
 
       # libasound2-dev is for cpal (audio playback).
       - name: Install Linux build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            pkg-config libxkbcommon-dev libwayland-dev libx11-dev libxcb1-dev libxcursor-dev \
-            libxrandr-dev libxi-dev libfontconfig1-dev libfreetype-dev mesa-vulkan-drivers \
+        uses: storytold/craft-common-actions/actions/install-apt-packages@main
+        with:
+          packages: >-
+            pkg-config libxkbcommon-dev libwayland-dev libx11-dev libxcb1-dev libxcursor-dev
+            libxrandr-dev libxi-dev libfontconfig1-dev libfreetype-dev mesa-vulkan-drivers
             libasound2-dev
 
       - name: Install Rust (stable + clippy, rustfmt, wasm32)
