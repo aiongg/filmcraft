@@ -18,21 +18,18 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  eval:
+  git-sources:
+    name: Git dependencies come from storytold
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Git dependencies come from storytold
+      - name: Check Cargo.lock
         run: |
           if grep -E '^source = "git\+' Cargo.lock | grep -v '"git+https://github.com/storytold/'; then
             echo "Cargo.lock has a git dependency outside github.com/storytold"; exit 1
           fi
-      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
-      - name: nix flake check --no-build
-        run: |
-          if [ -f flake.nix ]; then
-            nix flake check --no-build --all-systems
-          else
-            echo "No flake.nix present in this repository; skipping check."
-          fi
+
+  nix:
+    # Intentionally tracked at @main (not SHA-pinned) so org-wide CI improvements, security fixes, and build optimizations propagate without PR churn across all craftapp repos.
+    uses: storytold/craft-common-actions/.github/workflows/nix.yml@main
