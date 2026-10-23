@@ -58,7 +58,7 @@ fn run(d: &[u8], label: &str) {
 /// Seconds the whole sweep may take before it counts as a hang (override: FILMCRAFT_HOSTILE_TIMEOUT_SECS).
 const DEADLINE_SECS: u64 = 600;
 
-/// CI runs a share of every part of the sweep; `FILMCRAFT_FUZZ_ITERS=1500` runs all of it (see [`Depth`]).
+/// CI runs a rotating share of every part of the sweep; `FILMCRAFT_FUZZ_ITERS=1500` runs all of it (see [`Depth`]).
 #[test]
 fn hostile_frames_never_panic() {
     filmcraft_testkit::with_deadline(DEADLINE_SECS, sweep);
@@ -69,8 +69,7 @@ fn sweep() {
     let seeds = seeds();
     assert!(!seeds.is_empty());
     for (si, seed) in seeds.iter().enumerate() {
-        let stride = (seed.len() / depth.truncations).max(1);
-        for n in (0..seed.len()).step_by(stride) {
+        for n in depth.truncations(seed.len()) {
             run(&seed[..n], &format!("seed {si} truncate {n}"));
         }
         // The header (and the start of the scan-line index): every byte to extreme values, every bit.
@@ -101,6 +100,7 @@ fn sweep() {
             run(&d, &format!("seed {si} u16 {off:#x}={v:#x}"));
         }
         let mut rng = Rng(0x9e3779b97f4a7c15 ^ si as u64);
+        // Skipped rounds still draw their mutations, so round i matches round i of a full run.
         for i in 0..depth.rounds {
             let mut d = seed.clone();
             for _ in 0..1 + rng.below(8) {
@@ -111,35 +111,61 @@ fn sweep() {
                     d[p] = rng.next() as u8;
                 }
             }
-            run(&d, &format!("seed {si} random {i}"));
+            if depth.round(i) {
+                run(&d, &format!("seed {si} random {i}"));
+            }
         }
     }
 }
 
 const VALUES: [u8; 5] = [0, 0xff, 0x80, 0x01, 0x7f];
 
-/// How much of the sweep runs. `FILMCRAFT_FUZZ_ITERS=N` runs all of it (about 400 truncation points
-/// spread over each seed, every header byte, overwrite value and bit flip) plus N random rounds per
-/// seed: 1500 is the full depth, more hunts longer. Unset, CI runs a third of the truncation points
-/// and random rounds and, for each header byte, one value and two bits in rotation, so every byte
-/// is still hit and every value and bit index still occurs across the region.
+/// How much of the sweep runs. `FILMCRAFT_FUZZ_ITERS=N` runs all of it (about 400 truncation
+/// points spread over each seed, every header byte, overwrite value and bit flip) plus N random
+/// rounds per seed: 1500 is the full depth, more hunts longer. Unset, CI runs a third of the
+/// truncation points and of the full depth's random rounds and, for each header byte, one value
+/// and two bits. A rotation offset shifts which share runs (`FILMCRAFT_FUZZ_SEED`, else the UTC
+/// day number), so every case of the full sweep runs within a few days, and a random round's
+/// mutations match the same round of a full run.
 struct Depth {
     full: bool,
     truncations: usize,
     rounds: usize,
+    rotation: usize,
 }
 
 impl Depth {
     fn from_env() -> Self {
         match std::env::var("FILMCRAFT_FUZZ_ITERS").ok().and_then(|s| s.parse().ok()) {
-            Some(rounds) => Depth { full: true, truncations: 400, rounds },
-            None => Depth { full: false, truncations: 133, rounds: 500 },
+            Some(rounds) => Depth { full: true, truncations: 400, rounds, rotation: 0 },
+            None => {
+                let rotation = rotation();
+                eprintln!("fuzz subset rotation {rotation} (FILMCRAFT_FUZZ_SEED={rotation} replays it; FILMCRAFT_FUZZ_ITERS=1500 runs everything)");
+                Depth { full: false, truncations: 400, rounds: 1500, rotation }
+            }
         }
     }
+    /// Truncation lengths for a `len`-byte input: every point of the full sweep, or every third one.
+    fn truncations(&self, len: usize) -> std::iter::StepBy<std::ops::Range<usize>> {
+        let stride = (len / self.truncations).max(1);
+        let (start, step) = if self.full { (0, stride) } else { ((self.rotation % 3) * stride, 3 * stride) };
+        (start..len).step_by(step)
+    }
     fn value(&self, p: usize, i: usize) -> bool {
-        self.full || i == p % VALUES.len()
+        self.full || i == (p + self.rotation % VALUES.len()) % VALUES.len()
     }
     fn bit(&self, p: usize, b: usize) -> bool {
-        self.full || (b + p).is_multiple_of(4)
+        self.full || (b + p + self.rotation % 4).is_multiple_of(4)
     }
+    fn round(&self, i: usize) -> bool {
+        self.full || i % 3 == self.rotation % 3
+    }
+}
+
+/// The default subset's rotation offset: `FILMCRAFT_FUZZ_SEED`, else days since the Unix epoch (UTC).
+fn rotation() -> usize {
+    std::env::var("FILMCRAFT_FUZZ_SEED").ok().and_then(|s| s.parse().ok()).unwrap_or_else(|| {
+        let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+        usize::try_from(secs / 86_400).unwrap_or(0)
+    })
 }
