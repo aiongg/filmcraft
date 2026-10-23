@@ -51,30 +51,31 @@ fn failures_anywhere_continue_with_the_software_output() {
     for (name, _) in FIXTURES {
         let Some(path) = named(&ff, name) else { continue };
         let s = read_stream(&path);
-        let reference = decode_all(filmcraft_codecs::software_video_decoder(&s.entry).unwrap().as_mut(), &s.samples);
         let syncs: Vec<usize> = (0..s.samples.len()).filter(|&i| s.sync[i]).collect();
-        let mut points: Vec<usize> = vec![0, 1, 3, 7, s.samples.len() - 1, s.samples.len()];
-        for &k in &syncs {
-            points.extend([k, k + 1, k + 2, k + 5]);
-        }
+        let [_, k, .., last] = syncs[..] else { panic!("{name}: three GOPs or more") };
+        // The stream up to a few samples into its last GOP: past the last failure point the
+        // hybrid only passes the software decoder's output on.
+        let samples = &s.samples[..(last + 6).min(s.samples.len())];
+        let reference = decode_all(filmcraft_codecs::software_video_decoder(&s.entry).unwrap().as_mut(), samples);
+        // The hybrid's paths differ by what the replay log holds and what the hardware had
+        // pending: in the first GOP (nothing out yet, then pictures held for reordering), at and
+        // just after the second restart point (the log starts over, or an HEVC CRA keeps the GOP
+        // before it), at the last one (a CRA drops the GOP before the previous one), at the last
+        // sample and never. Failing anywhere else takes one of those paths.
+        let points = [0, 1, 3, 7, k, k + 1, k + 2, k + 5, last, last + 2, samples.len() - 1, samples.len()];
         for fail_after in points {
             let mut d = hybrid(&s, fail_after);
-            let out = decode_all(&mut d, &s.samples);
-            assert_eq!(d.is_hardware(), fail_after >= s.samples.len(), "{name}: fell back at {fail_after}");
+            let out = decode_all(&mut d, samples);
+            assert_eq!(d.is_hardware(), fail_after >= samples.len(), "{name}: fell back at {fail_after}");
             assert_same(&format!("{name} failing after {fail_after} samples"), &out, &reference);
         }
         // a failure after a seek (reset) into the second GOP
-        if let Some(&k) = syncs.get(1) {
-            let tail = &s.samples[k..];
-            let expect = {
-                let mut sw = filmcraft_codecs::software_video_decoder(&s.entry).unwrap();
-                decode_all(sw.as_mut(), tail)
-            };
-            let mut d = hybrid(&s, k + 4);
-            decode_all(&mut d, &s.samples[..k]);
-            d.reset();
-            assert_same(&format!("{name} failing after a seek"), &decode_all(&mut d, tail), &expect);
-        }
+        let tail = &samples[k..];
+        let expect = decode_all(filmcraft_codecs::software_video_decoder(&s.entry).unwrap().as_mut(), tail);
+        let mut d = hybrid(&s, k + 4);
+        decode_all(&mut d, &samples[..k]);
+        d.reset();
+        assert_same(&format!("{name} failing after a seek"), &decode_all(&mut d, tail), &expect);
     }
 }
 
@@ -179,7 +180,9 @@ fn a_sample_software_rejects_during_the_replay_loses_no_pictures() {
         // the second restart point, and a disposable picture before it that is not the first sample
         let Some(next) = (1..s.samples.len()).find(|&i| s.sync[i]) else { continue };
         let Some(d) = (2..next.saturating_sub(2)).find(|&i| info.is_disposable(&s.samples[i].0)) else { continue };
-        let mut stream = s.samples.clone();
+        // the first two GOPs: the replay and the restart after it
+        let end = (next + 1..s.samples.len()).find(|&i| s.sync[i]).unwrap_or(s.samples.len());
+        let mut stream = s.samples[..end].to_vec();
         stream[d].0 = damaged(&s.samples[d].0, header);
         let (reference, rejected) = decode_lenient(filmcraft_codecs::software_video_decoder(&s.entry).unwrap().as_mut(), &stream);
         assert_eq!(rejected, [d], "{name}: the software decoder rejects the damaged sample (and only it)");
