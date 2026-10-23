@@ -1,7 +1,8 @@
 //! Hostile-input robustness: header-region sweeps (SPS/PPS/first slice headers), truncation and
 //! random mutation of small libx265 streams must never panic or run away. Skips without ffmpeg.
 
-use crate::common;
+#[path = "it/common/mod.rs"]
+mod common;
 
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::process::{Command, Stdio};
@@ -141,11 +142,11 @@ fn sweep() {
 
 const VALUES: [u8; 5] = [0, 0xff, 0x80, 0x01, 0x7f];
 
-/// How much of the sweep runs. `FILMCRAFT_FUZZ_ITERS=N` runs all of it (every truncation point,
-/// header byte, overwrite value and bit flip) plus N random rounds per seed: 400 is the full depth,
-/// more hunts longer. Unset, CI runs a third of the truncation points and random rounds and, for
-/// each header byte, one value and two bits in rotation, so every byte is still hit and every
-/// value and bit index still occurs across the region.
+/// How much of the sweep runs. `FILMCRAFT_FUZZ_ITERS=N` runs all of it (about 300 truncation points
+/// spread over each seed, every header byte, overwrite value and bit flip) plus N random rounds per
+/// seed: 400 is the full depth, more hunts longer. Unset, CI runs a third of the truncation points
+/// and random rounds and, for each header byte, one value and two bits in rotation, so every byte
+/// is still hit and every value and bit index still occurs across the region.
 struct Depth {
     full: bool,
     truncations: usize,

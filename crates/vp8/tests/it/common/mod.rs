@@ -116,8 +116,9 @@ pub fn ensure(f: &Fixture) -> Option<(PathBuf, PathBuf)> {
     // one generation at a time, across test processes too: tests share fixtures, and realtime
     // libvpx encodes differ from run to run, so a stream and its reference decode must come from
     // the same encode
-    let lock = std::fs::File::create(dir.join("vp8.generate.lock")).ok()?;
-    lock.lock().ok()?;
+    // a lock failure is a broken environment, not a missing tool: fail rather than skip
+    let lock = std::fs::File::create(dir.join("vp8.generate.lock")).expect("create the fixture lock file");
+    lock.lock().expect("lock the fixture lock file");
     let ivf = dir.join(format!("{}.ivf", f.name));
     let yuv = dir.join(format!("{}.yuv", f.name));
     if !ivf.exists() {

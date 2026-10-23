@@ -92,12 +92,12 @@ fn run_all(frames: &[Vec<u8>], label: &str) {
 
 const VALUES: [u8; 5] = [0, 0xff, 0x80, 0x01, 0x7f];
 
-/// How much of the sweep runs. `FILMCRAFT_FUZZ_ITERS=N` runs all of it (every truncation point,
-/// header byte, overwrite value and bit flip) plus N random rounds per seed: 300 is the full depth,
-/// more hunts longer. Unset, CI runs a third of the truncation points and random rounds and, for
-/// each header byte of each frame, one value and one bit in a rotation that shifts with the frame
-/// index: every byte is still hit, and at each header offset the frames together still see every
-/// value and most bit indices.
+/// How much of the sweep runs. `FILMCRAFT_FUZZ_ITERS=N` runs all of it (about 200 truncation points
+/// spread over each of the first three frames, every header byte, overwrite value and bit flip)
+/// plus N random rounds per seed: 300 is the full depth, more hunts longer. Unset, CI runs a third
+/// of the truncation points and random rounds and, for each header byte of each frame, one value
+/// and one bit in a rotation that shifts with the frame index: every byte is still hit, and at each
+/// header offset the frames together still see every value and most bit indices.
 struct Depth {
     full: bool,
     truncations: usize,

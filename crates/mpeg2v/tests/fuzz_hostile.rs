@@ -2,7 +2,8 @@
 //! sweeps over a small ffmpeg-generated stream must never panic or run away (errors are fine).
 //! Skips when ffmpeg is missing.
 
-use crate::common;
+#[path = "it/common/mod.rs"]
+mod common;
 
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
@@ -146,11 +147,11 @@ fn fuzz(depth: &Depth, name: &str, seed: &[u8]) {
 
 const VALUES: [u8; 4] = [0, 0xff, 0x80, 0x01];
 
-/// How much of the sweep runs. `FILMCRAFT_FUZZ_ITERS=N` runs all of it (every truncation point,
-/// header byte, overwrite value and bit flip) plus N random rounds per seed: 2500 is the full
-/// depth, more hunts longer. Unset, CI runs a third of the truncation points and random rounds
-/// and, for each header byte, one value and two bits in rotation, so every byte is still hit and
-/// every value and bit index still occurs across the region.
+/// How much of the sweep runs. `FILMCRAFT_FUZZ_ITERS=N` runs all of it (about 600 truncation points
+/// spread over each seed, every header byte, overwrite value and bit flip) plus N random rounds per
+/// seed: 2500 is the full depth, more hunts longer. Unset, CI runs a third of the truncation points
+/// and random rounds and, for each header byte, one value and two bits in rotation, so every byte
+/// is still hit and every value and bit index still occurs across the region.
 struct Depth {
     full: bool,
     truncations: usize,
