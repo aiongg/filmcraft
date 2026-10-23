@@ -43,9 +43,6 @@ fn config(w: u32, h: u32) -> Config {
     }
 }
 
-/// NVENC sessions are a limited resource on consumer GPUs: one test at a time.
-static SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
 type Sources = Vec<(Vec<u8>, Vec<u8>, Vec<u8>)>;
 
 /// `None` (the test skips) only on a machine without an HEVC encoder; on one that has it, a
@@ -94,7 +91,7 @@ fn hex(b: &[u8]) -> String {
 
 #[test]
 fn the_stream_decodes_to_the_source() {
-    let _one = SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _one = crate::common::NVENC_SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     let (w, h) = (1280u32, 720u32);
     let Some((enc, packets, sources)) = encode_all(&config(w, h), 72) else { return };
     assert_eq!(enc.codec(), Codec::Hevc);
@@ -179,7 +176,7 @@ fn the_stream_decodes_to_the_source() {
 
 #[test]
 fn nothing_to_encode_with_is_an_error_not_a_crash() {
-    let _one = SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _one = crate::common::NVENC_SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     if !hevc_available() {
         eprintln!("SKIPPED: no NVENC HEVC here");
         return;
@@ -222,7 +219,7 @@ fn calm<T>(what: &str, f: impl FnOnce() -> T) -> T {
 
 #[test]
 fn hostile_configurations_give_errors_not_crashes() {
-    let _one = SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _one = crate::common::NVENC_SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     if !hevc_available() {
         eprintln!("SKIPPED: no NVENC HEVC here");
         return;
@@ -266,7 +263,7 @@ fn hostile_configurations_give_errors_not_crashes() {
 
 #[test]
 fn an_encoder_dropped_mid_stream_releases_everything() {
-    let _one = SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _one = crate::common::NVENC_SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     if !hevc_available() {
         eprintln!("SKIPPED: no NVENC HEVC here");
         return;
@@ -285,7 +282,7 @@ fn an_encoder_dropped_mid_stream_releases_everything() {
 
 #[test]
 fn high_bitrates_move_up_a_level_and_stay_in_the_main_tier() {
-    let _one = SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _one = crate::common::NVENC_SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     // 1080p30 at a 12 / 18 Mbit/s peak: above level 4's Main tier (12), where NVENC's own choice was
     // level 4 High tier, which many hardware decoders refuse
     for (w, h, fps, kbps, max_kbps, level_idc) in
@@ -302,7 +299,7 @@ fn high_bitrates_move_up_a_level_and_stay_in_the_main_tier() {
 
 #[test]
 fn a_keyframe_every_one_or_two_pictures_is_written_without_b_frames() {
-    let _one = SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _one = crate::common::NVENC_SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     // NVENC wants a GOP longer than the B-frame pattern: short GOPs drop the B-frames, they do not fail
     for keyint in [1u32, 2] {
         let cfg = Config { keyint, ..config(640, 360) };
@@ -324,7 +321,7 @@ fn a_keyframe_every_one_or_two_pictures_is_written_without_b_frames() {
 
 #[test]
 fn vui_timing_matches_integer_and_fractional_frame_rates() {
-    let _one = SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _one = crate::common::NVENC_SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     for fps in [(24, 1), (25, 1), (30_000, 1_001)] {
         let mut cfg = config(640, 360);
         cfg.fps = fps;

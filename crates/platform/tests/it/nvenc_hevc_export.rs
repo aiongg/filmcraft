@@ -21,9 +21,6 @@ use filmcraft_project::{ItemKind, Label, MediaClip, MediaRef, Project, SequenceS
 use filmcraft_render::SourceMap;
 use filmcraft_time::{FrameRate, Tick, TimeRange};
 
-/// The encoder counters are process-wide: one test at a time.
-static SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
 fn project(w: u32, h: u32, frames: i64) -> (Arc<Project>, filmcraft_project::ItemId, SourceMap) {
     let rate = FrameRate::FPS_24;
     let mut p = Project::new("x");
@@ -115,7 +112,7 @@ fn delta(before: filmcraft_export::HwEncodeStats) -> (u64, u64, u64) {
 
 #[test]
 fn hevc_exports_play_everywhere() {
-    let _one = SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _one = crate::common::NVENC_SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     filmcraft_platform::register();
     assert_eq!(filmcraft_export::available(Format::Hevc), hevc_available(), "the format is available iff NVENC can encode HEVC");
     if !hevc_available() {
@@ -173,7 +170,7 @@ fn hevc_exports_play_everywhere() {
 
 #[test]
 fn hevc_export_with_audio() {
-    let _one = SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _one = crate::common::NVENC_SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     filmcraft_platform::register();
     if !hevc_available() {
         eprintln!("SKIPPED: no NVENC HEVC here");
@@ -202,7 +199,7 @@ fn hevc_export_with_audio() {
 
 #[test]
 fn sizes_that_are_not_multiples_of_the_coding_block_are_cropped_back() {
-    let _one = SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _one = crate::common::NVENC_SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     filmcraft_platform::register();
     if !hevc_available() {
         eprintln!("SKIPPED: no NVENC HEVC here");
@@ -230,7 +227,7 @@ fn sizes_that_are_not_multiples_of_the_coding_block_are_cropped_back() {
 
 #[test]
 fn what_nvenc_cannot_do_is_an_error_that_says_why() {
-    let _one = SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _one = crate::common::NVENC_SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     filmcraft_platform::register();
     let rate = FrameRate::FPS_24;
     let base = hevc(tmp("declined.mp4"));

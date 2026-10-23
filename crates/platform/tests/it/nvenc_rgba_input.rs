@@ -6,9 +6,6 @@
 use filmcraft_isobmff::{AvcConfig, SampleEntry};
 use filmcraft_platform::nvenc::{Codec, Config, Nvenc, Packet, Profile, Signal, available, hevc_available};
 
-/// NVENC sessions are a limited resource on consumer GPUs: one test at a time.
-static SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
 /// A moving test picture: gradient background, a moving box, a little texture.
 fn moving(w: usize, h: usize, i: usize) -> Vec<u8> {
     let mut v = vec![0u8; w * h * 4];
@@ -122,7 +119,7 @@ fn check(profile: Profile) {
 
 #[test]
 fn hevc_rgba_input_converts_like_the_export() {
-    let _one = SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _one = crate::common::NVENC_SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     if !hevc_available() {
         eprintln!("SKIPPED: no NVENC HEVC encoder");
         return;
@@ -132,7 +129,7 @@ fn hevc_rgba_input_converts_like_the_export() {
 
 #[test]
 fn h264_rgba_input_converts_like_the_export() {
-    let _one = SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _one = crate::common::NVENC_SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     if !available() {
         eprintln!("SKIPPED: no NVENC");
         return;
@@ -142,7 +139,7 @@ fn h264_rgba_input_converts_like_the_export() {
 
 #[test]
 fn main10_has_no_rgba_input_and_short_pictures_are_errors() {
-    let _one = SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _one = crate::common::NVENC_SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     if !hevc_available() {
         eprintln!("SKIPPED: no NVENC HEVC encoder");
         return;

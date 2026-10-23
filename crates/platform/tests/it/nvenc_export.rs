@@ -13,9 +13,6 @@ use filmcraft_project::{ItemKind, Label, MediaClip, MediaRef, Project, SequenceS
 use filmcraft_render::SourceMap;
 use filmcraft_time::{FrameRate, Tick, TimeRange};
 
-/// The encoder counters are process-wide: one test at a time.
-static SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
 fn project(w: u32, h: u32, frames: i64) -> (Arc<Project>, filmcraft_project::ItemId, SourceMap) {
     let rate = FrameRate::FPS_24;
     let mut p = Project::new("x");
@@ -79,7 +76,7 @@ fn settings(path: String, hw: HardwareEncoding) -> ExportSettings {
 
 #[test]
 fn hardware_export_matches_the_software_export() {
-    let _one = SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _one = crate::common::NVENC_SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     filmcraft_platform::register();
     let (p, seq, m) = project(1280, 720, 72);
     let soft_path = tmp("soft.mp4");
@@ -117,7 +114,7 @@ fn hardware_export_matches_the_software_export() {
 
 #[test]
 fn what_nvenc_does_not_take_goes_to_the_software_encoder() {
-    let _one = SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _one = crate::common::NVENC_SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     filmcraft_platform::register();
     let (p, seq, m) = project(640, 360, 24);
     let run = |name: &str, f: &dyn Fn(&mut ExportSettings)| {

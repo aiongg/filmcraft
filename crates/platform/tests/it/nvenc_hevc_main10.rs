@@ -16,9 +16,6 @@ const W: usize = 1280;
 const H: usize = 720;
 const FRAMES: usize = 48;
 
-/// NVENC sessions are a limited resource on consumer GPUs: one test at a time.
-static SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
 fn config(w: u32, h: u32) -> Config {
     Config {
         width: w,
@@ -134,7 +131,7 @@ fn hex(b: &[u8]) -> String {
 }
 
 fn round_trip(name: &str, signal: ColorSignal, want_sei: bool) {
-    let _one = SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _one = crate::common::NVENC_SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     let Some((enc, packets, sources)) = encode_all(&config(W as u32, H as u32), &signal, FRAMES) else { return };
     assert!(enc.is_ten_bit());
     assert_eq!(packets.len(), FRAMES, "{name}: one packet per picture");
@@ -239,7 +236,7 @@ fn calm<T>(what: &str, f: impl FnOnce() -> T) -> T {
 
 #[test]
 fn main_10_and_main_encoders_refuse_each_others_pictures() {
-    let _one = SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _one = crate::common::NVENC_SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     if !hevc_hdr_available() {
         eprintln!("SKIPPED: no NVENC HEVC Main 10 encoder");
         return;
@@ -268,7 +265,7 @@ fn main_10_and_main_encoders_refuse_each_others_pictures() {
 
 #[test]
 fn hostile_main_10_configurations_give_errors_not_crashes() {
-    let _one = SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _one = crate::common::NVENC_SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     if !hevc_hdr_available() {
         eprintln!("SKIPPED: no NVENC HEVC Main 10 encoder");
         return;
@@ -315,7 +312,7 @@ fn hostile_main_10_configurations_give_errors_not_crashes() {
 
 #[test]
 fn the_probe_follows_the_encoder() {
-    let _one = SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _one = crate::common::NVENC_SERIAL.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     let hdr = hevc_hdr_available();
     assert!(!hdr || hevc_available(), "Main 10 implies HEVC");
     assert_eq!(hevc_hdr_available(), hdr, "the answer is kept");

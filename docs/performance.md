@@ -483,7 +483,7 @@ Same commit, Settings ▸ Playback ▸ Hardware decoding switched with the bench
 Core i5-13500H with Iris Xe graphics (Raptor Lake-P), 7.4 GB RAM, Intel iHD driver 26.1.2 through
 libva 2.22, load average 5–15. Only H.264 goes through VA-API so far; the HEVC rows decode in
 software either way and show the run-to-run spread. The decoded pictures are identical
-(bit-exact parity tests, `crates/platform/tests/it/vaapi.rs`).
+(bit-exact parity tests, `crates/platform/tests/vaapi.rs`).
 
 | codec | size | CPU ms/frame Off → **Auto** | fps Off → **Auto** (best of 3) | hw frames |
 |---|---|---|---|---|

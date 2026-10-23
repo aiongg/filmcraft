@@ -9,6 +9,10 @@ use filmcraft_codecs::{DecodedFrame, VideoDecoder};
 use filmcraft_frame::PixelData;
 use filmcraft_isobmff::SampleEntry;
 
+/// NVENC sessions are a limited resource on consumer GPUs, and the encoder counters are
+/// process-wide: one NVENC test at a time across every module of the binary.
+pub static NVENC_SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 /// The parity fixtures: (file, ffmpeg arguments). B-frames everywhere (reordering), a 360-line
 /// picture (coded 368: cropping), two GOPs or more (seeks), and an open-GOP HEVC stream (CRA with
 /// RASL pictures).
