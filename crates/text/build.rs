@@ -28,7 +28,7 @@ fn main() {
             Err(e) => println!("cargo::warning=building without craft-fonts: CRAFT_FONTS_DIR={}: {e}", dir.display()),
         },
         None if required => {
-            println!("cargo::error=CRAFT_FONTS_REQUIRED=1 but CRAFT_FONTS_DIR is not set: point it at a craft-fonts checkout (absolute path)");
+            println!("cargo::error=CRAFT_FONTS_REQUIRED=1 but CRAFT_FONTS_DIR is unset or empty: point it at a craft-fonts checkout (absolute path)");
         }
         None => {}
     }
