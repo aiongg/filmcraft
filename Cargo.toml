@@ -72,19 +72,19 @@ chrono = { version = "0.4.45", default-features = false, features = ["std"] }
 rayon = "1"
 proptest = "1"
 roxmltree = "0.21"
-craft-docpath = { version = "0.1.0", git = "https://github.com/aiongg/craft-libs", rev = "60d60d484db91911c63534df66aecdee016007f0" }
-craft-media = { version = "0.1.0", git = "https://github.com/aiongg/craft-libs", rev = "60d60d484db91911c63534df66aecdee016007f0", default-features = false }
+craft-docpath = { version = "0.1.0", git = "https://github.com/aiongg/craft-libs", rev = "6af6348135c2ce1bc1118efe99f5d2f4d9ac07c5" }
+craft-media = { version = "0.1.0", git = "https://github.com/aiongg/craft-libs", rev = "6af6348135c2ce1bc1118efe99f5d2f4d9ac07c5", default-features = false }
 
 # ui
 # Shared frontend components; keep this dependency above the engine boundary.
-craft-ui = { version = "0.1.0", git = "https://github.com/aiongg/craft-libs", rev = "60d60d484db91911c63534df66aecdee016007f0", features = ["serde", "native-windows"] }
+craft-ui = { version = "0.1.0", git = "https://github.com/aiongg/craft-libs", rev = "6af6348135c2ce1bc1118efe99f5d2f4d9ac07c5", features = ["serde", "native-windows"] }
 # egui 0.37: bundled fonts are opt-in, and the monochrome symbol/emoji faces moved to their own
 # feature. FilmCraft paints ✔ ✓ ✖ ⚡ ⚠ ⚙ ♪ ☑ in panel chrome, so both features are part of the
 # production font policy (system_fonts stays off).
 egui = { version = "0.37", features = ["default_fonts", "monochrome_emoji_fonts"] }
 eframe = { version = "0.37", default-features = false }
 egui_kittest = "0.37"
-craft-update = { git = "https://github.com/aiongg/craft-libs", version = "=0.1.0", rev = "60d60d484db91911c63534df66aecdee016007f0", features = ["egui"] }
+craft-update = { git = "https://github.com/aiongg/craft-libs", version = "=0.1.0", rev = "6af6348135c2ce1bc1118efe99f5d2f4d9ac07c5", features = ["egui"] }
 rfd = "0.17"
 
 [workspace.lints.rust]
